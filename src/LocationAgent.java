@@ -21,7 +21,7 @@ import jade.lang.acl.MessageTemplate;
 import jade.proto.AchieveREResponder;
 import jade.proto.ContractNetInitiator;
 import jade.proto.ContractNetResponder;
-
+ // COMMIT TEST
 public class LocationAgent extends Agent {
 	private boolean busy = false;
 	private String tractorNo; // STILL NEED TO CHANGE THIS WHEN ONTOLOGY IS IMPLEMENTED
