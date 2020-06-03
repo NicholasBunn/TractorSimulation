@@ -1,6 +1,12 @@
 
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
+import jade.content.ContentElement;
+import jade.content.lang.*;
+import jade.content.lang.Codec.CodecException;
+import jade.content.lang.xml.XMLCodec;
+import jade.content.onto.Ontology;
+import jade.content.onto.OntologyException;
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
@@ -21,8 +27,13 @@ import java.util.Enumeration;
 import java.util.Vector;
 import com.opencsv.CSVWriter;
 import java.io.FileWriter;
+import ontologies.*;
 
 public class TractorAgent extends Agent {
+	
+	private Codec xmlCodec = new XMLCodec();
+	private Ontology ontology = TractorOnto.getInstance();
+	
 //	private String instanceNumber = getLocalName();
 //	//private String instanceNumber = "T1";
 //	private String[] no = instanceNumber.split("T");
@@ -49,6 +60,10 @@ public class TractorAgent extends Agent {
 			e.printStackTrace();
 			System.out.print("Error registering " + getLocalName() + " to DF");
 		}
+		
+		// Register language and ontology
+		getContentManager().registerLanguage(xmlCodec);
+		getContentManager().registerOntology(ontology);
 		
 		// Firstly, create a file for this tractor agent to write to if a file does not already exist.
 		String instanceNumber = getLocalName();
@@ -93,23 +108,47 @@ public class TractorAgent extends Agent {
 	
 	// Function/method to request consumption data for tractor.
 	private void SendRequest() {
+		// Create 
+		PerformRequests pr = new PerformRequests();
+		Tractor tr = new Tractor();
+		
 		String instanceNumber = getLocalName();
 		String[] no = instanceNumber.split("T");
 		String fuelSensor = "F" + no[1];
-		//final String fuelPortNumber = "900" + no[1]; // Which port is this tractor's data accessed on?
+		
+		tr.setId(no[1]);
+		tr.setName("Tractor " + no[1]);
+		pr.setTractorId(no[1]); // Should I be passing an object here? 
 		
 		// Fill the REQUEST message
+		
 		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
+		msg.setLanguage(xmlCodec.getName()); //NEED TO UPDATE THIS
+		msg.setOntology(ontology.getName());
 		msg.addReceiver(new AID((String) fuelSensor, AID.ISLOCALNAME));
 		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-		// We want to receive a reply in 10 secs
-		msg.setReplyByDate(new Date(System.currentTimeMillis() + 10000));
-		msg.setContent("Ontology-ish"); 
+		msg.setReplyByDate(new Date(System.currentTimeMillis() + 10000)); // We want to receive a reply within 10 secs
+		try {
+			getContentManager().fillContent(msg, pr);
+		} catch (CodecException | OntologyException e) {
+			System.out.println("Error filling content for fuel message.");
+			e.printStackTrace();
+		}
 				
 		addBehaviour(new AchieveREInitiator(this, msg) {
 			protected void handleInform(ACLMessage inform) {
 //				System.out.println("Agent " + getLocalName() + ": " + "Agent "+inform.getSender().getName() + " successfully performed the requested action" + " with the result: " + inform.getContent());
-				currentConsumption = inform.getContent();
+				ContentElement content;
+				try {
+					content = getContentManager().extractContent(inform);
+					PerformRequests pr = (PerformRequests) content;
+					currentConsumption = pr.getConsumption();
+//					System.out.println("Consumption for " + getLocalName() + ": " + currentConsumption);
+				} catch (CodecException | OntologyException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+//				currentConsumption = inform.getContent();
 //				System.out.println("Agent " +  getLocalName() + ": " + "Response received from " + ". " + inform.getSender().getName() + ". " + "Consumption for Tractor: " + inform.getContent());
 			}
 			protected void handleRefuse(ACLMessage refuse) {
@@ -127,6 +166,7 @@ public class TractorAgent extends Agent {
 				}
 			} );
 	}
+	
 
 	private void SendCFP() throws FIPAException {
 		//String instanceNumber = getLocalName();
