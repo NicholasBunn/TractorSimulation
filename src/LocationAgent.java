@@ -5,6 +5,12 @@ import java.net.UnknownHostException;
 import java.sql.Date;
 import java.util.Vector;
 
+import jade.content.ContentElement;
+import jade.content.lang.Codec;
+import jade.content.lang.Codec.CodecException;
+import jade.content.lang.xml.XMLCodec;
+import jade.content.onto.Ontology;
+import jade.content.onto.OntologyException;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
@@ -21,15 +27,21 @@ import jade.lang.acl.MessageTemplate;
 import jade.proto.AchieveREResponder;
 import jade.proto.ContractNetInitiator;
 import jade.proto.ContractNetResponder;
+import ontologies.PerformCFP;
+import ontologies.PerformRequests;
+import ontologies.TractorOnto;
 
 public class LocationAgent extends Agent {
 	private boolean busy = false;
-	private String tractorNo; // STILL NEED TO CHANGE THIS WHEN ONTOLOGY IS IMPLEMENTED
+	private String tractorNo;
 	private String tractorPosition = null;;
 	private String locPortNumber = null;
 	private String tractorNumber = "0";
 	private String farmNumber = null;
 	private String myTime = null;
+	
+	private Codec xmlCodec = new XMLCodec();
+	private Ontology ontology = TractorOnto.getInstance();
 	
 	public void setup() {
 		// Register Service
@@ -45,9 +57,14 @@ public class LocationAgent extends Agent {
 			e.printStackTrace();
 			System.out.print("Error registering " + getLocalName() + " to DF");
 		}
+		
+		// Register language and ontology
+		getContentManager().registerLanguage(xmlCodec);
+		getContentManager().registerOntology(ontology);
 				
 		String instanceNumber = getLocalName();
 		String[] no = instanceNumber.split("L");
+		farmNumber = no[1];
 		locPortNumber = "910" + no[1];
 				
 		System.out.println("Agent " + getLocalName() + " waiting for CFP...");
@@ -58,17 +75,40 @@ public class LocationAgent extends Agent {
 			addBehaviour(new ContractNetResponder(this, template) {
 				protected ACLMessage prepareResponse(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
 //					System.out.println("Agent " + getLocalName( ) + ": CFP received from " + cfp.getSender().getName() + ". Action is " + cfp.getContent());
-					tractorNo = cfp.getSender().getName();
-					String tracNo1[] = tractorNo.split("T");
-					String tracNo[] = tracNo1[1].split("@");
-					tractorNo = tracNo[0];
+					
+					ContentElement content;
+					try {
+						content = getContentManager().extractContent(cfp);
+						PerformCFP pc = (PerformCFP) content;
+						tractorNo = pc.getTractorId();
+					} catch (CodecException | OntologyException e) {
+						System.out.println("Error extracting content for location message.");
+						e.printStackTrace();
+					}
+					
 					String proposal = LastTime(Integer.parseInt(tractorNo)); // return last time tractor was on farm
 					if (proposal != null) {
 						// We provide a proposal
 //						System.out.println("Agent " + getLocalName() + ": Proposing " + proposal);
+						PerformCFP pc = new PerformCFP();
+						
 						ACLMessage propose = cfp.createReply();
 						propose.setPerformative(ACLMessage.PROPOSE);
-						propose.setContent(String.valueOf(proposal));
+						
+						pc.setTractorId(tractorNo);
+						pc.setTimeStamp(proposal);
+						pc.setFarmNumber(farmNumber); 
+						// THEN NEED TO CONFIRM THAT THE RETURNED MESSAGE IS RECEIVED CORRECTLY
+						// ALSO NEED TO CHECK THE TYPE OF VARIABLE BEING PASSED BY THE LASTTIME FUNCTION
+						// INTO PROPOSAL
+						
+						try {
+							getContentManager().fillContent(propose, pc);
+						} catch (CodecException | OntologyException e) {
+							System.out.println("Error filling content for proposal message.");
+							e.printStackTrace();
+						}
+						
 						return propose;
 					}
 					else {
@@ -82,8 +122,23 @@ public class LocationAgent extends Agent {
 //					System.out.println("Agent " + getLocalName() + ": Proposal accepted");
 //						System.out.println("Agent " + getLocalName() + ": Action successfully performed");
 						ACLMessage inform = accept.createReply();
+						
+						PerformCFP pc = new PerformCFP();
+						
+						pc.setFarmLocation(tractorPosition);
+						pc.setFarmNumber(farmNumber);
+						pc.setTimeStamp(myTime);
+						pc.setTractorId(tractorNumber);
+						
 						inform.setPerformative(ACLMessage.INFORM);
-						inform.setContent("f" + farmNumber + "p" + tractorPosition + "T" + tractorNumber + "t" + myTime); // XML Message based on ontology?
+						
+						try {
+							getContentManager().fillContent(inform, pc);
+						} catch (CodecException | OntologyException e) {
+							System.out.println("Error filling content for inform message.");
+							e.printStackTrace();
+						}
+						
 						return inform;
 				}
 				
@@ -102,7 +157,6 @@ public class LocationAgent extends Agent {
 	private String LastTime(int myTract) {
 		String currentData = null;
 		String sensor = null;
-		String newestData = "0";
 		String newestTime = "0";
 		
 		String instanceNumber = getLocalName();
@@ -128,13 +182,13 @@ public class LocationAgent extends Agent {
 					
 					if(!"none".equals(dataArr[2]) && !"none".equals(dataArr[3])) {
 						String[] farm = dataArr[0].split("m");
-						farmNumber = farm[1];
+//						farmNumber = farm[1];
 						
 						String[] pos = dataArr[1].split("p");
-						tractorPosition = pos[1];
+//						tractorPosition = pos[1];
 						
 						String[] tractor = dataArr[2].split("r");
-						tractorNumber = tractor[2];
+//						tractorNumber = tractor[2];
 						
 						myTime = dataArr[3];
 						
@@ -144,7 +198,9 @@ public class LocationAgent extends Agent {
 //						System.out.println(myTime);
 						if(Integer.parseInt(myTime) > Integer.parseInt(newestTime)) {
 							newestTime = myTime;
-							newestData = currentData;
+							tractorNumber = tractor[2];
+							tractorPosition = pos[1];
+							farmNumber = farm[1];
 						}
 					} 
 			  }

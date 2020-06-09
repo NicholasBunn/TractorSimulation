@@ -39,22 +39,22 @@ public class FuelAgent extends Agent {
 	
 	public void setup() {
 		// Register Service
-				DFAgentDescription agentDesc = new DFAgentDescription();
-				ServiceDescription serviceDesc = new ServiceDescription();
-				serviceDesc.setType("FuelFetcher");
-				serviceDesc.setName(getLocalName());
-				agentDesc.setName(getAID());
-				agentDesc.addServices(serviceDesc);
-				try {
-					DFService.register(this, agentDesc);
-				} catch (FIPAException e) {
-					e.printStackTrace();
-					System.out.print("Error registering " + getLocalName() + " to DF");
-				}
-				
-				// Register language and ontology
-				getContentManager().registerLanguage(xmlCodec);
-				getContentManager().registerOntology(ontology);
+		DFAgentDescription agentDesc = new DFAgentDescription();
+		ServiceDescription serviceDesc = new ServiceDescription();
+		serviceDesc.setType("FuelFetcher");
+		serviceDesc.setName(getLocalName());
+		agentDesc.setName(getAID());
+		agentDesc.addServices(serviceDesc);
+		try {
+			DFService.register(this, agentDesc);
+		} catch (FIPAException e) {
+			e.printStackTrace();
+			System.out.print("Error registering " + getLocalName() + " to DF");
+		}
+		
+		// Register language and ontology
+		getContentManager().registerLanguage(xmlCodec);
+		getContentManager().registerOntology(ontology);
 				
 		System.out.println("Agent "+getLocalName()+" waiting for requests...");
 		MessageTemplate template = MessageTemplate.and(
@@ -64,10 +64,6 @@ public class FuelAgent extends Agent {
 			protected ACLMessage prepareResponse(ACLMessage request) throws NotUnderstoodException, RefuseException {
 //				System.out.println("Agent " + getLocalName() + ": Request received from "+request.getSender().getName() + ". " + "Action is "+request.getContent());
 				try {
-//					ContentManager cm = FuelAgent.getContentManager();
-//					ContentElement contentElement = cm.extractContent(request);
-//					ParameterConcept pc = (ParameterConcept) contentElement;
-					
 					ContentElement content = getContentManager().extractContent(request);
 					PerformRequests pr = (PerformRequests) content;
 					mySens = pr.getTractorId();

@@ -1,4 +1,3 @@
-
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.content.ContentElement;
@@ -11,6 +10,9 @@ import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
 import jade.proto.ContractNetInitiator;
+import jade.wrapper.AgentController;
+import jade.wrapper.ContainerController;
+import jade.wrapper.StaleProxyException;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
@@ -31,21 +33,18 @@ import ontologies.*;
 
 public class TractorAgent extends Agent {
 	
+	private int replyBy = 7000;
+	
 	private Codec xmlCodec = new XMLCodec();
 	private Ontology ontology = TractorOnto.getInstance();
 	
-//	private String instanceNumber = getLocalName();
-//	//private String instanceNumber = "T1";
-//	private String[] no = instanceNumber.split("T");
-//	private String fuelSensor = "F" + no[1];
-//	private String locSensor = "L" + no[1];
-//	private final String fuelPortNumber = "900" + no[1]; // Which port is this tractor's data accessed on?
-//	private final String locPortNumber = "910" + no[1]; // Need to implement for every farm.
 	private String currentConsumption = "No value available yet";
+	private String currentFarm = "No farm information available yet";
 	private String currentLocation = "No location available yet";
+	
 	private boolean first = false;
 	private int nResponders;
-		
+	
 	protected void setup() {
 		// Register Service
 		DFAgentDescription agentDesc = new DFAgentDescription();
@@ -82,10 +81,22 @@ public class TractorAgent extends Agent {
 			e.printStackTrace();
 		}
 		
+		// Create corresponding fuel management agent
+		ContainerController cc = getContainerController();
+		String faName = "F" + no[1];
+		try {
+			AgentController ac;
+			ac = cc.createNewAgent(faName, "FuelAgent", null);
+			ac.start();
+		} catch (StaleProxyException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}		
+		
 		// Ticker behaviour, set to execute every second. The methods executed in this behaviour 
 		// firstly update the data and then write the current values as well as the time stamp
 		// to the respective file.
-		addBehaviour(new TickerBehaviour(this, 1000) { // SHOULD THIS BE IN SETUP()?
+		addBehaviour(new TickerBehaviour(this, 7000) { // SHOULD THIS BE IN SETUP()?
 			@Override
 			protected void onTick() {
 					SendRequest();
@@ -102,7 +113,9 @@ public class TractorAgent extends Agent {
 	
 	protected void takeDown() 
     {
-       try { DFService.deregister(this); }
+       try { 
+    	   DFService.deregister(this);
+       }
        catch (Exception e) {}
     }
 	
@@ -123,11 +136,11 @@ public class TractorAgent extends Agent {
 		// Fill the REQUEST message
 		
 		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
-		msg.setLanguage(xmlCodec.getName()); //NEED TO UPDATE THIS
+		msg.setLanguage(xmlCodec.getName()); 
 		msg.setOntology(ontology.getName());
 		msg.addReceiver(new AID((String) fuelSensor, AID.ISLOCALNAME));
 		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-		msg.setReplyByDate(new Date(System.currentTimeMillis() + 10000)); // We want to receive a reply within 10 secs
+		msg.setReplyByDate(new Date(System.currentTimeMillis() + replyBy)); // We want to receive a reply within 10 secs
 		try {
 			getContentManager().fillContent(msg, pr);
 		} catch (CodecException | OntologyException e) {
@@ -169,9 +182,19 @@ public class TractorAgent extends Agent {
 	
 
 	private void SendCFP() throws FIPAException {
+		PerformCFP pc = new PerformCFP();
+		Tractor tr = new Tractor();
 		//String instanceNumber = getLocalName();
 		//String[] no = instanceNumber.split("T");
 		//String locSensor = "L" + no[1];
+		
+		String tractorNo = getLocalName();
+		String tracNo[] = tractorNo.split("T");
+		tractorNo = tracNo[1];
+		
+		tr.setId(tractorNo);
+		tr.setName("Tractor " + tractorNo);
+		pc.setTractorId(tractorNo);
 		
 		DFAgentDescription dfd = new DFAgentDescription();
         ServiceDescription sd  = new ServiceDescription();
@@ -191,76 +214,103 @@ public class TractorAgent extends Agent {
 	  			msg.addReceiver(new AID((String) DFName[0], AID.ISLOCALNAME));
 	  		}
 	  		//msg.addReceiver(new AID((String) locSensor, AID.ISLOCALNAME));
-				msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
-				// We want to receive a reply in 10 secs
-				msg.setReplyByDate(new Date(System.currentTimeMillis() + 10000));
-				msg.setContent("ontology-ish");
+	  		msg.setLanguage(xmlCodec.getName()); 
+			msg.setOntology(ontology.getName());
+			msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
+			// We want to receive a reply in 10 secs
+			msg.setReplyByDate(new Date(System.currentTimeMillis() + replyBy));
+			try {
+				getContentManager().fillContent(msg, pc);
+//				System.out.println(msg);
+			} catch (CodecException | OntologyException e) {
+				System.out.println("Error filling content for location message.");
+				e.printStackTrace();
+			}
 				
-				addBehaviour(new ContractNetInitiator(this, msg) {
-					
-					protected void handlePropose(ACLMessage propose, Vector v) {
-//						System.out.println("Agent " + propose.getSender().getName() + " proposed " + propose.getContent());
+			addBehaviour(new ContractNetInitiator(this, msg) {
+				
+				protected void handleAllResponses(Vector responses, Vector acceptances) {
+					if (responses.size() < nResponders) {
+						// Some responder didn't reply within the specified timeout
+						System.out.println("Timeout expired: missing " + (nResponders - responses.size()) + " responses");
 					}
-					
-					protected void handleRefuse(ACLMessage refuse) {
-//						System.out.println("Agent " + refuse.getSender().getName() + " refused");
-					}
-					
-					protected void handleFailure(ACLMessage failure) {
-						if (failure.getSender().equals(myAgent.getAMS())) {
-							// FAILURE notification from the JADE runtime: the receiver
-							// does not exist
-							System.out.println("Responder does not exist");
-						}
-						else {
-							System.out.println("Agent " + failure.getSender().getName() + " failed");
-						}
-						// Immediate failure --> we will not receive a response from this agent
-						nResponders--;
-					}
-					
-					protected void handleAllResponses(Vector responses, Vector acceptances) {
-						if (responses.size() < nResponders) {
-							// Some responder didn't reply within the specified timeout
-							System.out.println("Timeout expired: missing " + (nResponders - responses.size()) + " responses");
-						}
-						// Evaluate proposals.
-						int bestProposal = 0;
-						AID bestProposer = null;
-						ACLMessage accept = null;
-						Enumeration e = responses.elements();
-						while (e.hasMoreElements()) {
-							ACLMessage msg = (ACLMessage) e.nextElement();
-							if (msg.getPerformative() == ACLMessage.PROPOSE) {
-								ACLMessage reply = msg.createReply();
-								reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
-								acceptances.addElement(reply);
-								int proposal = Integer.parseInt(msg.getContent());
+					// Evaluate proposals.
+					int bestProposal = 0;
+					AID bestProposer = null;
+					ACLMessage accept = null;
+					Enumeration e = responses.elements();
+					while (e.hasMoreElements()) {
+						ACLMessage msg = (ACLMessage) e.nextElement();
+						if (msg.getPerformative() == ACLMessage.PROPOSE) {
+							ACLMessage reply = msg.createReply();
+							reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
+							acceptances.addElement(reply);
+							
+							try {
+								PerformCFP pc = (PerformCFP) getContentManager().extractContent(msg);
+								int proposal = Integer.parseInt(pc.getTimeStamp());
+//								System.out.println("Received proposal " + proposal);
+//								System.out.println("Consumption for " + getLocalName() + ": " + currentConsumption);
 								if (proposal > bestProposal) {
 									bestProposal = proposal;
 									bestProposer = msg.getSender();
 //									System.out.println("Tractor " + getLocalName() + " accepting proposal from " + bestProposer);
 									accept = reply;
 								}
-							}
+							} catch (CodecException | OntologyException err) {
+								// TODO Auto-generated catch block
+								err.printStackTrace();
+							}							
 						}
-						// Accept the proposal of the best proposer
-						if (accept != null) {
-//							System.out.println("Accepting proposal " + bestProposal + " from responder " + bestProposer.getName());
-							accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-						}						
+					}
+					// Accept the proposal of the best proposer
+					if (accept != null) {
+//						System.out.println("Accepting proposal " + bestProposal + " from responder " + bestProposer.getName());
+						accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+					}						
+				}
+				
+				protected void handleInform(ACLMessage inform) {
+//					System.out.println("Agent " + inform.getSender().getName() + " successfully performed the requested action");
+					PerformCFP pc;
+					try {
+						pc = (PerformCFP) getContentManager().extractContent(inform);
+						currentLocation = pc.getFarmLocation();
+						currentFarm = pc.getFarmNumber();
+//						System.out.println(currentLocation);
+					} catch (CodecException | OntologyException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
 					
-					protected void handleInform(ACLMessage inform) {
-//						System.out.println("Agent " + inform.getSender().getName() + " successfully performed the requested action");
-						currentLocation = inform.getContent();
-//						System.out.println(currentLocation);
+				}
+				
+				protected void handlePropose(ACLMessage propose, Vector v) {
+//					System.out.println("Agent " + propose.getSender().getName() + " proposed " + propose.getContent());
+				}
+					
+				protected void handleRefuse(ACLMessage refuse) {
+//					System.out.println("Agent " + refuse.getSender().getName() + " refused");
+				}
+				
+				protected void handleFailure(ACLMessage failure) {
+					if (failure.getSender().equals(myAgent.getAMS())) {
+						// FAILURE notification from the JADE runtime: the receiver
+						// does not exist
+						System.out.println("Responder does not exist");
 					}
-				} );
-	  	}
-	  	else {
-	  		System.out.println("No responder specified.");
-	  	}
+					else {
+						System.out.println("Agent " + failure.getSender().getName() + " failed");
+					}
+					// Immediate failure --> we will not receive a response from this agent
+					nResponders--;
+				}
+				
+			} );
+	 	}
+	 	else {
+	 		System.out.println("No responder specified.");
+	 	}
 	}
 	
 	//Function to write values to file
@@ -274,7 +324,7 @@ public class TractorAgent extends Agent {
 	  
 	        if (first != true) {
 	        	// adding header to csv 
-		        String[] header = { "Time", "Consumption", "Location" }; 
+		        String[] header = { "Time", "Consumption", "Farm", "Location" }; 
 		        writer.writeNext(header); 
 		        first = true;
 	        } else {
@@ -289,7 +339,7 @@ public class TractorAgent extends Agent {
 	            String strDateTime = dateFormat.format(dateTime);  
             
 	        	// add data to csv 
-	        	String[] data1 = { strDateTime, currentConsumption, currentLocation }; 
+	        	String[] data1 = { strDateTime, currentConsumption, currentFarm, currentLocation }; 
 	        	writer.writeNext(data1); 
 	        }
 	        // closing writer connection 
