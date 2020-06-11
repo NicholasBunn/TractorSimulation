@@ -33,13 +33,9 @@ public class TractorOnto extends Ontology implements TractorVocabulary {
 		    	  
 		    	  // Add AgentActions
 
-		    	  // CreateTractor
-		          AgentActionSchema as = new AgentActionSchema(ADD_TRACTOR);
-		          add(as, AddTractor.class);
-		          as.add(ADD_TRACTOR_NAME, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
-		    	  
 		    	  // PerformRequests
-		    	  add(as = new AgentActionSchema(PERFORM_REQUESTS), PerformRequests.class);
+		          AgentActionSchema as = new AgentActionSchema(PERFORM_REQUESTS);
+		          add(as, PerformRequests.class);
 		    	  as.add(PERFORM_REQUESTS_CONSUMPTION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
 		    	  as.add(PERFORM_REQUESTS_TRACTORID, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
 		    	  
@@ -50,8 +46,7 @@ public class TractorOnto extends Ontology implements TractorVocabulary {
 		    	  as.add(PERFORM_CFP_TRACTORID, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
 		    	  as.add(PERFORM_CFP_TIMESTAMP, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
 
-		      }
-		      catch (OntologyException oe) {
+		      } catch (OntologyException oe) {
 		         oe.printStackTrace();
 		      }
 		   }

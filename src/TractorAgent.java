@@ -62,6 +62,7 @@ public class TractorAgent extends Agent {
 		agentDesc.addServices(serviceDesc);
 		try {
 			DFService.register(this, agentDesc);
+			System.out.println("Tractor registered with DF");
 		} catch (FIPAException e) {
 			e.printStackTrace();
 			System.out.print("Error registering " + getLocalName() + " to DF");
@@ -125,7 +126,6 @@ public class TractorAgent extends Agent {
        try { 
     	   // De-register this service from the DF
     	   DFService.deregister(this);
-    	   System.out.println(this + " deregistered.");
        } catch(Exception e) {}
     }
 	

@@ -11,9 +11,6 @@ public interface TractorVocabulary {
 	public static final String TRACTOR_FARMLOCATION = "farmLocation";
 	public static final String TRACTOR_TIMESTAMP = "timeStamp";
 	
-	public static final String ADD_TRACTOR = "Add_tractor";
-	public static final String ADD_TRACTOR_NAME = "name";
-	
 	public static final String PERFORM_REQUESTS = "PerformRequests";
 	public static final String PERFORM_REQUESTS_CONSUMPTION = "consumption";
 	public static final String PERFORM_REQUESTS_TRACTORID = "tractorId";

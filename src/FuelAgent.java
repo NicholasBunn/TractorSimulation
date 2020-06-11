@@ -138,7 +138,6 @@ public class FuelAgent extends Agent {
 //		  System.out.println("Agent " + getLocalName() + ": " + "Client started");
 	
 		  try { 
-
 			  String userString = "request";
 			  //System.out.println("Sending " + userString + " over port " + Port);
 			  
