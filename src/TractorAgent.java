@@ -1,4 +1,6 @@
 import jade.core.Agent;
+import jade.core.behaviours.ActionExecutor;
+import jade.core.behaviours.OutcomeManager;
 import jade.core.behaviours.TickerBehaviour;
 import jade.content.ContentElement;
 import jade.content.lang.*;
@@ -6,6 +8,7 @@ import jade.content.lang.Codec.CodecException;
 import jade.content.lang.xml.XMLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
+import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
@@ -18,6 +21,8 @@ import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.domain.JADEAgentManagement.JADEManagementOntology;
+import jade.domain.JADEAgentManagement.KillAgent;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,6 +39,8 @@ import ontologies.*;
 public class TractorAgent extends Agent {
 	
 	private int replyBy = 7000;
+	
+	private String faName;
 	
 	private Codec xmlCodec = new XMLCodec();
 	private Ontology ontology = TractorOnto.getInstance();
@@ -62,7 +69,9 @@ public class TractorAgent extends Agent {
 		
 		// Register language and ontology
 		getContentManager().registerLanguage(xmlCodec);
-		getContentManager().registerOntology(ontology);
+//		getContentManager().registerLanguage(slCodec);
+	    getContentManager().registerOntology(JADEManagementOntology.getInstance());
+	    getContentManager().registerOntology(ontology);
 		
 		// Firstly, create a file for this tractor agent to write to if a file does not already exist.
 		String instanceNumber = getLocalName();
@@ -83,7 +92,7 @@ public class TractorAgent extends Agent {
 		
 		// Create corresponding fuel management agent
 		ContainerController cc = getContainerController();
-		String faName = "F" + no[1];
+		faName = "F" + no[1];
 		try {
 			AgentController ac;
 			ac = cc.createNewAgent(faName, "FuelAgent", null);
@@ -114,9 +123,10 @@ public class TractorAgent extends Agent {
 	protected void takeDown() 
     {
        try { 
+    	   // De-register this service from the DF
     	   DFService.deregister(this);
-       }
-       catch (Exception e) {}
+    	   System.out.println(this + " deregistered.");
+       } catch(Exception e) {}
     }
 	
 	// Function/method to request consumption data for tractor.

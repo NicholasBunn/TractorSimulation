@@ -150,8 +150,9 @@ public class LocationAgent extends Agent {
 	
 	protected void takeDown() 
     {
-       try { DFService.deregister(this); }
-       catch (Exception e) {}
+       try { 
+    	   DFService.deregister(this); 
+       } catch (Exception e) {}
     }
 		
 	private String LastTime(int myTract) {

@@ -56,13 +56,13 @@ public class FuelAgent extends Agent {
 		getContentManager().registerLanguage(xmlCodec);
 		getContentManager().registerOntology(ontology);
 				
-		System.out.println("Agent "+getLocalName()+" waiting for requests...");
+		System.out.println("Agent " + getLocalName() + " waiting for requests...");
 		MessageTemplate template = MessageTemplate.and(
 				MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),
 				MessageTemplate.MatchPerformative(ACLMessage.REQUEST) );
 		addBehaviour(new AchieveREResponder(this, template) {
 			protected ACLMessage prepareResponse(ACLMessage request) throws NotUnderstoodException, RefuseException {
-//				System.out.println("Agent " + getLocalName() + ": Request received from "+request.getSender().getName() + ". " + "Action is "+request.getContent());
+//				System.out.println("Agent " + getLocalName() + ": Request received from " + request.getSender().getName() + ". " + "Action is "+request.getContent());
 				try {
 					ContentElement content = getContentManager().extractContent(request);
 					PerformRequests pr = (PerformRequests) content;
@@ -85,7 +85,7 @@ public class FuelAgent extends Agent {
 				}
 				else {
 					// We refuse to perform the action
-					System.out.println("Agent "+getLocalName()+": Refuse");
+					System.out.println("Agent " + getLocalName() + ": Refuse");
 					throw new RefuseException("check-failed");
 				}
 			}
@@ -96,7 +96,7 @@ public class FuelAgent extends Agent {
 				if (returnString != null) {
 //					System.out.println("Agent " + getLocalName() + ": " + "Action successfully performed");
 					ACLMessage inform = request.createReply();
-					inform.setLanguage(xmlCodec.getName()); //NEED TO UPDATE THIS
+					inform.setLanguage(xmlCodec.getName());
 					inform.setOntology(ontology.getName());
 					inform.setPerformative(ACLMessage.INFORM);
 //					inform.setContent(returnString);
@@ -120,8 +120,10 @@ public class FuelAgent extends Agent {
 	
 	protected void takeDown() 
     {
-       try { DFService.deregister(this); }
-       catch (Exception e) {}
+       try { 
+    	   DFService.deregister(this); 
+    	   
+       } catch (Exception e) {}
     }
 	
 	private String FetchConsumption(String myId) { // MUST TAKE PORT NUMBER AS INPUT?
