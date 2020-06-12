@@ -36,9 +36,16 @@ public class ProgramGUI extends Agent {
 	
 	private Object tractorItem;
 	private Object farmItem;
+	
+	private boolean tractorRemoved = false;
+	private boolean farmRemoved = false;
+	
 	private int windowX = 600;
 	private int windowY = 200;
-	private String title = "TEST";
+	private int tractorCount = 0;
+	private int farmCount = 0;
+
+	private String title = "Program Dashboard";
 	
 	private Codec xmlCodec = new XMLCodec();
 	private Ontology systemOntology = SystemOnto.getInstance();
@@ -91,6 +98,27 @@ public class ProgramGUI extends Agent {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// Send request to PC to create tractor
+				if (tractorRemoved) {
+					int reLaunchCheck = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing tractor?");
+					// 0=yes, 1=no, 2=cancel
+					String tractorName = new String();
+					if (reLaunchCheck == 0) {
+						tractorName = JOptionPane.showInputDialog("What is the ID of the tractor being re-commissioned? [T_]");
+						tractorCount--;
+						CreateAgentMessage(tractorName, "TractorAgent");
+					} else {
+						tractorCount++;
+						tractorName = "T" + Integer.toString(tractorCount);
+						tractorCount--;
+						CreateAgentMessage(tractorName, "TractorAgent");
+					}
+				} else {
+					tractorCount++;
+					String tractorName = "T" + Integer.toString(tractorCount);
+					tractorCount--;
+					CreateAgentMessage(tractorName, "TractorAgent");
+				}
+				
 			}			
 		});
 			
@@ -102,17 +130,23 @@ public class ProgramGUI extends Agent {
 				// Send request to PC to kill current tractor agent
 				// PC should take care of killing the corresponding fuel agent too
 				// Prompt with an "Are you sure you would like to kill Tractor ...?"
-				int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove tractor " + tractorItem + "?");
-		        // 0=yes, 1=no, 2=cancel
-				if (killCheck == 0) {
-					KillAgentMessage((String) tractorItem, "TractorAgent");
-					tractorList.removeItem(tractorItem);
-				} else {}
+				if (tractorItem != null) {
+					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove tractor " + tractorItem + "?");
+			        // 0=yes, 1=no, 2=cancel
+					if (killCheck == 0) {
+						KillAgentMessage((String) tractorItem, "TractorAgent");
+						tractorRemoved = true;
+						tractorList.removeItem(tractorItem);
+					} else {}
+				} else {
+					JOptionPane.showMessageDialog(null, "Please select a tractor to remove.");
+				}
+				
 			}			
 		});
 						
-		JLabel farmtractorQuery = new JLabel("Active Farms:");
-		farmtractorQuery.setBounds(300, -30, 300, 100);	
+		JLabel farmQuery = new JLabel("Active Farms:");
+		farmQuery.setBounds(300, -30, 300, 100);	
 		
 		JTextArea farmArea = new JTextArea();  
 	    farmArea.setBounds(300, 45, 82, 90);	
@@ -122,8 +156,27 @@ public class ProgramGUI extends Agent {
 		af.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				farmArea.append("F1\n");
 				// Send a message to the PC to create a new farm
+				if (farmRemoved) {
+					int reLaunchCheck2 = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing farm?");
+					// 0=yes, 1=no, 2=cancel
+					String farmName = new String();
+					if (reLaunchCheck2 == 0) {
+						farmName = JOptionPane.showInputDialog("What is the ID of the farm being re-commissioned? [L_]");
+						farmCount--;
+						CreateAgentMessage(farmName, "LocationAgent");
+					} else {
+						farmCount++;
+						farmName = "L" + Integer.toString(farmCount);
+						farmCount--;
+						CreateAgentMessage(farmName, "LocationAgent");
+					}
+				} else {
+					farmCount++;
+					String farmName = "L" + Integer.toString(farmCount);
+					farmCount--;
+					CreateAgentMessage(farmName, "LocationAgent");
+				}
 			}			
 		});
 		
@@ -150,12 +203,17 @@ public class ProgramGUI extends Agent {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// Send a message to the PC to kill the selected farm
-				int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove farm " + farmItem + "?");
-		        // 0=yes, 1=no, 2=cancel
-				if (killCheck == 0) {
-					KillAgentMessage((String) farmItem, null);
-					farmList.removeItem(farmItem);
-				} else {}
+				if (farmItem != null) {
+					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove farm " + farmItem + "?");
+			        // 0=yes, 1=no, 2=cancel
+					if (killCheck == 0) {
+						KillAgentMessage((String) farmItem, null);
+						farmRemoved = true;
+						farmList.removeItem(farmItem);
+					} else {}
+				} else {
+					JOptionPane.showMessageDialog(null, "Please select a farm to remove.");
+				}
 			}			
 		});
 			
@@ -179,14 +237,18 @@ public class ProgramGUI extends Agent {
 			  				while (it.hasNext()) {
 			  					ServiceDescription sd = (ServiceDescription) it.next();
 			  					if ((sd.getType().equals("DataAggregator"))) {
-			  						System.out.println("Tractor: " + sd.getName() + " found.");
+//			  						System.out.println("Tractor: " + sd.getName() + " found.");
+			  						tractorCount++;
+//			  						System.out.println("Total tractor count: " + tractorCount);
 			  						tractorList.addItem(sd.getName());
 			  					} 
 //				  					else if (sd.get) {
 //				  						
 //				  					} 
 			  					else if (sd.getType().equals("LocationFetcher")) {
-			  						System.out.println("Farm: " + sd.getName() + " found.");
+//			  						System.out.println("Farm: " + sd.getName() + " found.");
+			  						farmCount++;
+//			  						System.out.println("Total farm count: " + farmCount);
 			  						farmList.addItem(sd.getName());
 			  					}
 			  				}
@@ -200,11 +262,10 @@ public class ProgramGUI extends Agent {
 			}
 		} );
 			
-		programFrame.add(farmList);
 		programFrame.add(rf);
 		programFrame.add(af);
-		programFrame.add(farmtractorQuery);
-//				programFrame.add(farmList);
+		programFrame.add(farmQuery);
+		programFrame.add(farmList);
 		programFrame.add(rt);
 		programFrame.add(at);
 		programFrame.add(tractorQuery);
@@ -281,5 +342,9 @@ public class ProgramGUI extends Agent {
 			else {}
 			}
 		});
+	}
+	
+	private void SendRequestMessage(String tractorNo) {
+		
 	}
 }

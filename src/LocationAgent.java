@@ -181,7 +181,7 @@ public class LocationAgent extends Agent {
 					}
 					String[] dataArr = currentData.split("_");
 					
-					if(!"none".equals(dataArr[2]) && !"none".equals(dataArr[3])) {
+					if((!"No location sensors avaialable on this farm.".equals(currentData)) && (!"none".equals(dataArr[2])) && (!"none".equals(dataArr[3]))) {
 						String[] farm = dataArr[0].split("m");
 //						farmNumber = farm[1];
 						
@@ -193,10 +193,6 @@ public class LocationAgent extends Agent {
 						
 						myTime = dataArr[3];
 						
-//						System.out.println(farmNumber);
-//						System.out.println(tractorPosition);
-//						System.out.println(tractorNumber);
-//						System.out.println(myTime);
 						if(Integer.parseInt(myTime) > Integer.parseInt(newestTime)) {
 							newestTime = myTime;
 							tractorNumber = tractor[2];
@@ -219,26 +215,29 @@ public class LocationAgent extends Agent {
 		String dataReceived = null;
 		DataOutputStream outToServer;
 		
-		//setup socket
-		Socket socket = new Socket("localhost", Integer.parseInt(locPortNumber));
-					  
-		//send message over socket
-		outToServer = new DataOutputStream(socket.getOutputStream());
-		byte[] outByteString1 = farmCode.getBytes("UTF-8");
-		outToServer.write(outByteString1);
-		//read replied message from socket
-		byte[] inByteString = new byte[500] ;
-		int numOfBytes = socket.getInputStream().read(inByteString);
-		dataReceived = new String(inByteString, 0, numOfBytes, "UTF-8");
-					  
-		//				  System.out.println("Agent " + getLocalName() + ": FetchLocation Received: " + dataReceived);
-					  
-		//close connection
-		socket.close();
 		try {
+			//setup socket
+			Socket socket = new Socket("localhost", Integer.parseInt(locPortNumber));
+						  
+			//send message over socket
+			outToServer = new DataOutputStream(socket.getOutputStream());
+			byte[] outByteString1 = farmCode.getBytes("UTF-8");
+			outToServer.write(outByteString1);
+			//read replied message from socket
+			byte[] inByteString = new byte[500] ;
+			int numOfBytes = socket.getInputStream().read(inByteString);
+			dataReceived = new String(inByteString, 0, numOfBytes, "UTF-8");
+						  
+			//				  System.out.println("Agent " + getLocalName() + ": FetchLocation Received: " + dataReceived);
+						  
+			//close connection
+			socket.close();
 			Thread.sleep(500);
+
+		} catch (IOException e) {
+			dataReceived = "No location sensors avaialable on this farm.";
+//			e.printStackTrace();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		

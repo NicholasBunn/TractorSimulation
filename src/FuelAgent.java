@@ -160,7 +160,8 @@ public class FuelAgent extends Agent {
 			  Thread.sleep(500);
 		  }
 		  catch (IOException e) {
-			  e.printStackTrace();
+			  dataReceived = "No fuel sensor active.";
+//			  e.printStackTrace();
 		  } catch (InterruptedException e) {
 			  e.printStackTrace();
 		  }
