@@ -5,6 +5,7 @@ import java.awt.event.ItemListener;
 import java.util.Date;
 import java.util.Iterator;
 
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -12,6 +13,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 
+import jade.content.ContentElement;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.xml.XMLCodec;
@@ -28,8 +30,11 @@ import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
 import jade.proto.SubscriptionInitiator;
 import ontologies.AddAgent;
+import ontologies.PerformRequests;
 import ontologies.RemoveAgent;
+import ontologies.RetrieveData;
 import ontologies.SystemOnto;
+import ontologies.Tractor;
 import ontologies.TractorOnto;
 
 public class ProgramGUI extends Agent {
@@ -41,12 +46,18 @@ public class ProgramGUI extends Agent {
 	private boolean farmRemoved = false;
 	
 	private int windowX = 600;
-	private int windowY = 200;
+	private int windowY = 275;
 	private int tractorCount = 0;
 	private int farmCount = 0;
 
 	private String title = "Program Dashboard";
 	
+	private String TractorID;
+	private String tractorName;
+	private String consumption;
+	private String currentFarm;
+	private String currentLocation;
+
 	private Codec xmlCodec = new XMLCodec();
 	private Ontology systemOntology = SystemOnto.getInstance();
 	private Ontology tractorOntology = TractorOnto.getInstance();
@@ -59,8 +70,13 @@ public class ProgramGUI extends Agent {
 		getContentManager().registerOntology(tractorOntology);
 		
 		JFrame programFrame = new JFrame(title);
+		
 		JLabel tractorQuery = new JLabel("Querying Tractor:");
 		tractorQuery.setBounds(10, -30, 300, 100);	
+		
+		JTextArea infoArea=new JTextArea();  
+	    infoArea.setBounds(86, 115, 130, 100); 
+	    
 		JComboBox<String> tractorList = new JComboBox<String>();
 		tractorList.setBounds(125, 10, 90, 20);
 		tractorList.addItem("None");
@@ -81,29 +97,44 @@ public class ProgramGUI extends Agent {
 
 				if (event.getStateChange() == ItemEvent.SELECTED) {
 		            if (event.getItem() != "None") {
+		            	infoArea.selectAll();
+		            	infoArea.replaceSelection("");
 			            System.out.println(tractorItem + " Selected");
+			            SendRequestMessage((String) tractorItem);
+			            try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+			            infoArea.append("Tractor: " + TractorID + "\n");
+			            infoArea.append("Fuel Consumption: " + consumption + "\n");
+			            infoArea.append("Current Farm: " + currentFarm + "\n");
+			            infoArea.append("Current Location: " + currentLocation + "\n");
 					}
 				}
 				
-				if (event.getStateChange() == ItemEvent.DESELECTED) {
-					System.out.println(tractorItem + "Deselected");
-					// End display of current information
-				}
+//				if (event.getStateChange() == ItemEvent.DESELECTED) {
+//					System.out.println(tractorItem + "Deselected");
+//					// End display of current information
+//				}
 			}
 		});
 				
 		JButton at = new JButton("Add Tractor");
-		at.setBounds(10, 45, 130, 25);
+		at.setBounds(86, 45, 130, 25);
 		at.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// Send request to PC to create tractor
 				if (tractorRemoved) {
-					int reLaunchCheck = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing tractor?");
+	                ImageIcon tractorIcon = new ImageIcon(ProgramGUI.class.getResource("/TractorIcon.png"));
+					int reLaunchCheck = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing tractor?", "Tractor Re-Commission Check", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, tractorIcon);
 					// 0=yes, 1=no, 2=cancel
 					String tractorName = new String();
 					if (reLaunchCheck == 0) {
-						tractorName = JOptionPane.showInputDialog("What is the ID of the tractor being re-commissioned? [T_]");
+						tractorName = (String) JOptionPane.showInputDialog(null, "What is the ID of the tractor being re-commissioned? [T_]", "Tractor ID Query", JOptionPane.QUESTION_MESSAGE, tractorIcon, null, null);
+						System.out.println(tractorName);
 						tractorCount--;
 						CreateAgentMessage(tractorName, "TractorAgent");
 					} else {
@@ -123,7 +154,7 @@ public class ProgramGUI extends Agent {
 		});
 			
 		JButton rt = new JButton("Remove Tractor");
-		rt.setBounds(10, 80, 130, 25);
+		rt.setBounds(86, 80, 130, 25);
 		rt.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -131,7 +162,8 @@ public class ProgramGUI extends Agent {
 				// PC should take care of killing the corresponding fuel agent too
 				// Prompt with an "Are you sure you would like to kill Tractor ...?"
 				if (tractorItem != null) {
-					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove tractor " + tractorItem + "?");
+	                ImageIcon tractorIcon = new ImageIcon(ProgramGUI.class.getResource("/TractorIcon.png"));
+					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove tractor " + tractorItem + "?", "Confirm Tractor Removal", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, tractorIcon);
 			        // 0=yes, 1=no, 2=cancel
 					if (killCheck == 0) {
 						KillAgentMessage((String) tractorItem, "TractorAgent");
@@ -146,10 +178,24 @@ public class ProgramGUI extends Agent {
 		});
 						
 		JLabel farmQuery = new JLabel("Active Farms:");
-		farmQuery.setBounds(300, -30, 300, 100);	
+		farmQuery.setBounds(360, -30, 300, 100);	
 		
-		JTextArea farmArea = new JTextArea();  
-	    farmArea.setBounds(300, 45, 82, 90);	
+	    JComboBox<String> farmList = new JComboBox<String>();
+		farmList.setBounds(475, 10, 90, 20);
+        farmList.addItem("None");
+        
+		// Identify which farm is currently being queried
+		farmList.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent event) {
+				// The item affected by the event.
+				if (event.getStateChange() == ItemEvent.SELECTED) {
+					if (event.getItem() != "None") {
+						farmItem = event.getItem();
+			            System.out.println(farmItem + " Selected");
+					}
+		        }
+			}
+		});
 		
 		JButton af = new JButton("Add Farm");
 		af.setBounds(415, 45, 130, 25);
@@ -158,11 +204,12 @@ public class ProgramGUI extends Agent {
 			public void actionPerformed(ActionEvent e) {
 				// Send a message to the PC to create a new farm
 				if (farmRemoved) {
-					int reLaunchCheck2 = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing farm?");
+	                ImageIcon farmIcon = new ImageIcon(ProgramGUI.class.getResource("/FarmIcon.png"));
+					int reLaunchCheck2 = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing farm?", "Farm Re-Commission Check", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, farmIcon);
 					// 0=yes, 1=no, 2=cancel
 					String farmName = new String();
 					if (reLaunchCheck2 == 0) {
-						farmName = JOptionPane.showInputDialog("What is the ID of the farm being re-commissioned? [L_]");
+						farmName = (String) JOptionPane.showInputDialog(null, "What is the ID of the farm being re-commissioned? [L_]", "Farm ID Query", JOptionPane.QUESTION_MESSAGE, farmIcon, null, null);
 						farmCount--;
 						CreateAgentMessage(farmName, "LocationAgent");
 					} else {
@@ -179,24 +226,7 @@ public class ProgramGUI extends Agent {
 				}
 			}			
 		});
-		
-		JComboBox<String> farmList = new JComboBox<String>();
-		farmList.setBounds(415, 10, 90, 20);
-        farmList.addItem("None");
-        
-		// Identify which farm is currently being queried
-		farmList.addItemListener(new ItemListener() {
-			public void itemStateChanged(ItemEvent event) {
-				// The item affected by the event.
-				if (event.getStateChange() == ItemEvent.SELECTED) {
-					if (event.getItem() != "None") {
-						farmItem = event.getItem();
-			            System.out.println(farmItem + " Selected");
-					}
-		        }
-			}
-		});
-		
+				
 		JButton rf = new JButton("Remove Farm");
 		rf.setBounds(415, 80, 130, 25);
 		rf.addActionListener(new ActionListener() {
@@ -204,7 +234,9 @@ public class ProgramGUI extends Agent {
 			public void actionPerformed(ActionEvent e) {
 				// Send a message to the PC to kill the selected farm
 				if (farmItem != null) {
-					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove farm " + farmItem + "?");
+
+	                ImageIcon farmIcon = new ImageIcon(ProgramGUI.class.getResource("/FarmIcon.png"));
+					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove farm " + farmItem + "?", "Confirm Farm Removal", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, farmIcon);
 			        // 0=yes, 1=no, 2=cancel
 					if (killCheck == 0) {
 						KillAgentMessage((String) farmItem, null);
@@ -262,6 +294,7 @@ public class ProgramGUI extends Agent {
 			}
 		} );
 			
+	    programFrame.add(infoArea);
 		programFrame.add(rf);
 		programFrame.add(af);
 		programFrame.add(farmQuery);
@@ -344,7 +377,63 @@ public class ProgramGUI extends Agent {
 		});
 	}
 	
-	private void SendRequestMessage(String tractorNo) {
+	private void SendRequestMessage(String tractorID) {
 		
+		PerformRequests pr = new PerformRequests();
+		pr.setTractorId(tractorID);
+		
+		// Fill the REQUEST message
+		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
+		msg.setLanguage(xmlCodec.getName()); 
+		msg.setOntology(tractorOntology.getName());
+		msg.addReceiver(new AID(tractorID, AID.ISLOCALNAME));
+		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+//		msg.setReplyByDate(new Date(System.currentTimeMillis() + replyBy)); 
+		try {
+			getContentManager().fillContent(msg, pr);
+		} catch (CodecException | OntologyException e) {
+			System.out.println("Error filling content for request message.");
+			e.printStackTrace();
+		}
+				
+		addBehaviour(new AchieveREInitiator(this, msg) {
+			protected void handleInform(ACLMessage inform) {
+//				System.out.println("Agent " + getLocalName() + ": " + "Agent "+inform.getSender().getName() + " successfully performed the requested action" + " with the result: " + inform.getContent());
+				ContentElement content;
+				try {
+					content = getContentManager().extractContent(inform);
+					RetrieveData rd = (RetrieveData) content;
+					TractorID = rd.getId();
+					tractorName = rd.getName();
+					consumption = rd.getConsumption();
+					currentFarm = rd.getFarmNumber();
+					currentLocation = rd.getFarmLocation();
+//					System.out.println("Tractor ID: " + TractorID);
+//					System.out.println("Tractor name: " + tractorName);
+//					System.out.println("Tractor consumption: " + consumption);
+//					System.out.println("Tractor location: " + currentFarm + " " + currentLocation);
+
+				} catch (CodecException | OntologyException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+//				currentConsumption = inform.getContent();
+//				System.out.println("Agent " +  getLocalName() + ": " + "Response received from " + ". " + inform.getSender().getName() + ". " + "Consumption for Tractor: " + inform.getContent());
+			}
+			protected void handleRefuse(ACLMessage refuse) {
+//				System.out.println("Agent " + getLocalName() + ": " + "Agent "+refuse.getSender().getName()+" refused to perform the requested action");
+			}
+			protected void handleFailure(ACLMessage failure) {
+				if (failure.getSender().equals(myAgent.getAMS())) {
+					// FAILURE notification from the JADE runtime: the receiver
+					// does not exist
+					System.out.println("Responder does not exist");
+					}
+				else {
+//					System.out.println("Agent " + getLocalName() + ": " + "Agent "+failure.getSender().getName()+" failed to perform the requested action");
+					}
+				}
+			} );
 	}
+
 }

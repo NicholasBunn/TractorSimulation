@@ -11,7 +11,9 @@ import jade.content.onto.OntologyException;
 import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import jade.proto.AchieveREInitiator;
+import jade.proto.AchieveREResponder;
 import jade.proto.ContractNetInitiator;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
@@ -20,6 +22,9 @@ import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.FailureException;
+import jade.domain.FIPAAgentManagement.NotUnderstoodException;
+import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.JADEAgentManagement.JADEManagementOntology;
 import jade.domain.JADEAgentManagement.KillAgent;
@@ -45,6 +50,8 @@ public class TractorAgent extends Agent {
 	private Codec xmlCodec = new XMLCodec();
 	private Ontology ontology = TractorOnto.getInstance();
 	
+	private String myID;
+	private String myName;
 	private String currentConsumption = "No value available yet";
 	private String currentFarm = "No farm information available yet";
 	private String currentLocation = "No location available yet";
@@ -70,7 +77,6 @@ public class TractorAgent extends Agent {
 		
 		// Register language and ontology
 		getContentManager().registerLanguage(xmlCodec);
-//		getContentManager().registerLanguage(slCodec);
 	    getContentManager().registerOntology(JADEManagementOntology.getInstance());
 	    getContentManager().registerOntology(ontology);
 		
@@ -91,6 +97,10 @@ public class TractorAgent extends Agent {
 			e.printStackTrace();
 		}
 		
+		// Set ID and name for this tractor instance
+		myID = "T" + no[1];
+		myName = "Tractor" + no[1];
+		
 		// Create corresponding fuel management agent
 		ContainerController cc = getContainerController();
 		faName = "F" + no[1];
@@ -102,6 +112,37 @@ public class TractorAgent extends Agent {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}		
+		
+		MessageTemplate template = MessageTemplate.and(
+				MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),
+				MessageTemplate.MatchPerformative(ACLMessage.REQUEST) );
+		addBehaviour(new AchieveREResponder(this, template) {
+			protected ACLMessage prepareResponse(ACLMessage request) throws NotUnderstoodException, RefuseException {
+				return null;
+			}
+			
+			protected ACLMessage prepareResultNotification(ACLMessage request, ACLMessage response) throws FailureException {
+				RetrieveData rd = new RetrieveData();
+				rd.setId(myID);
+				rd.setName(myName);
+				rd.setConsumption(currentConsumption);
+				rd.setFarmNumber(currentFarm);
+				rd.setFarmLocation(currentLocation);
+
+				ACLMessage inform = request.createReply();
+				inform.setLanguage(xmlCodec.getName());
+				inform.setOntology(ontology.getName());
+				inform.setPerformative(ACLMessage.INFORM);
+				
+				try {
+					getContentManager().fillContent(inform, rd);
+				} catch (CodecException | OntologyException e) {
+					System.out.println("Error filling content for data message.");
+					e.printStackTrace();
+				}
+				return inform;
+			}
+		} );
 		
 		// Ticker behaviour, set to execute every second. The methods executed in this behaviour 
 		// firstly update the data and then write the current values as well as the time stamp

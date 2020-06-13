@@ -39,6 +39,14 @@ public class TractorOnto extends Ontology implements TractorVocabulary {
 		    	  as.add(PERFORM_REQUESTS_CONSUMPTION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
 		    	  as.add(PERFORM_REQUESTS_TRACTORID, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
 		    	  
+		    	  // RetreiveData
+		    	  add(as = new AgentActionSchema(RETRIEVE_DATA), RetrieveData.class);
+		    	  as.add(RETRIEVE_DATA_ID, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
+		    	  as.add(RETRIEVE_DATA_NAME, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
+		    	  as.add(RETRIEVE_DATA_CONSUMPTION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+		    	  as.add(RETRIEVE_DATA_FARMNUMBER, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+		    	  as.add(RETRIEVE_DATA_FARMLOCATION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+
 		    	  // PerformCFP
 		    	  add(as = new AgentActionSchema(PERFORM_CFP), PerformCFP.class);
 		    	  as.add(PERFORM_CFP_FARMLOCATION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);

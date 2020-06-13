@@ -197,13 +197,14 @@ public class LocationAgent extends Agent {
 							newestTime = myTime;
 							tractorNumber = tractor[2];
 							tractorPosition = pos[1];
-							farmNumber = farm[1];
+//							farmNumber = farm[1];
 						}
 					} 
 			  }
 		}
 		
 		if(Integer.parseInt(tractorNumber) == myTract) {
+//			System.out.println(newestTime + " T" + (String) tractorNumber + " F" + farmNumber + tractorPosition);
 			return newestTime;
 		} else {
 			return null;

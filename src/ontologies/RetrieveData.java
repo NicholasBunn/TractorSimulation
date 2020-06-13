@@ -1,14 +1,13 @@
 package ontologies;
 
-import jade.content.*;
+import jade.content.AgentAction;
 
-public class Tractor implements Concept {
+public class RetrieveData implements AgentAction {
 	private String id;
 	private String name;
 	private String consumption;
 	private String farmNumber;
 	private String farmLocation;
-	private String timeStamp;
 	
 	public String getId() {
 		return id;
@@ -30,10 +29,6 @@ public class Tractor implements Concept {
 		return farmLocation;
 	}
 	
-	public String getTimeStamp() {
-		return timeStamp;
-	}
-	
 	public void setId(String id) {
 		this.id = id;
 	}
@@ -53,9 +48,4 @@ public class Tractor implements Concept {
 	public void setFarmLocation(String farmLocation) {
 		this.farmLocation = farmLocation;
 	}
-	
-	public void setTimeStamp(String timeStamp) {
-		this.timeStamp = timeStamp;
-	}
-	
 }

@@ -15,6 +15,14 @@ public interface TractorVocabulary {
 	public static final String PERFORM_REQUESTS_CONSUMPTION = "consumption";
 	public static final String PERFORM_REQUESTS_TRACTORID = "tractorId";
 	
+	public static final String RETRIEVE_DATA = "retrieveData";
+	public static final String RETRIEVE_DATA_ID = "id";
+	public static final String RETRIEVE_DATA_NAME = "name";
+	public static final String RETRIEVE_DATA_CONSUMPTION = "consumption";
+	public static final String RETRIEVE_DATA_FARMNUMBER = "farmNumber";
+	public static final String RETRIEVE_DATA_FARMLOCATION = "farmLocation";
+
+	
 	public static final String PERFORM_CFP = "PerformCFP";
 	public static final String PERFORM_CFP_FARMNUMBER = "farmNumber";
 	public static final String PERFORM_CFP_FARMLOCATION = "farmLocation";
