@@ -6,12 +6,10 @@ import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.Date;
-
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
-
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.onto.OntologyException;
@@ -38,7 +36,6 @@ public class StartupGUI extends Agent {
 	private static JLabel tractorQ;
 	protected static JTextField farmInput;
 	protected static JTextField tractorInput;
-	
 
 	private Codec xmlCodec = new XMLCodec();
 	private Ontology ontology = SystemOnto.getInstance();
@@ -69,7 +66,6 @@ public class StartupGUI extends Agent {
 					try {
 						startupFarmCount = Integer.parseInt(farmInput.getText());
 					} catch (NumberFormatException fiErr) {
-//						fiErr.printStackTrace();
 						System.out.println("Error reading farm inputs.");
 					}
 				}
@@ -155,7 +151,6 @@ public class StartupGUI extends Agent {
 			public void focusLost(FocusEvent e) {}
 	    });
 		
-//		startupFrame.add((Component) deployListener);
 		startupFrame.add(d);
 		startupFrame.add(farmQ);
 		startupFrame.add(tractorQ);
@@ -169,6 +164,7 @@ public class StartupGUI extends Agent {
 		startupFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	}
 	
+	// Iterate through user-specified number of farms and tractors to create them
 	private void DeployAction() {
 		if((startupTractorCount > 0) & (startupFarmCount > 0)) {
 			int i = 0;
@@ -199,6 +195,7 @@ public class StartupGUI extends Agent {
 		}
 	}
 	
+	// Send create agent message to the program controller
 	private void CreateAgentMessage(String name, String type) {
 		AddAgent aa = new AddAgent();
 		aa.setName(name);
@@ -210,6 +207,7 @@ public class StartupGUI extends Agent {
 		msg.addReceiver(new AID("PC", AID.ISLOCALNAME));
 		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
 		msg.setReplyByDate(new Date(System.currentTimeMillis() + 3000));
+		
 		try {
 			getContentManager().fillContent(msg, aa);
 		} catch(CodecException | OntologyException e) {
@@ -218,19 +216,15 @@ public class StartupGUI extends Agent {
 		System.out.println(msg);
 		
 		addBehaviour(new AchieveREInitiator(this, msg) {
-			protected void handleInform(ACLMessage inform) {
-				
-			}
+			protected void handleInform(ACLMessage inform) {}
+			
 			protected void handleRefuse(ACLMessage refuse) {}
+			
 			protected void handleFailure(ACLMessage failure) {
-			if (failure.getSender().equals(myAgent.getAMS())) {
-				// FAILURE notification from the JADE runtime: the receiver
-				// does not exist
-				System.out.println("Responder does not exist");
-				}
-			else {}
+				if (failure.getSender().equals(myAgent.getAMS())) {
+					System.out.println("Responder does not exist");
+				} else {}
 			}
 		});
 	}
-
 }

@@ -4,24 +4,13 @@ import jade.content.*;
 
 
 public class PerformRequests implements AgentAction {
-// ------------------------------------------------
+   private FuelRequest fuel;
 
-   private String consumption;
-   private String tractorId;
-
-   public String getConsumption() {
-     return consumption;
+   public FuelRequest getFuelId() {
+      return fuel;
    }
 
-   public String getTractorId() {
-      return tractorId;
-   }
-
-   public void setConsumption(String consumption) {
-      this.consumption = consumption;
-   }
-
-   public void setTractorId(String tractorId) {
-      this.tractorId = tractorId;
+   public void setFuelId(FuelRequest fuel) {
+      this.fuel = fuel;
    }
 }

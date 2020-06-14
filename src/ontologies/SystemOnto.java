@@ -4,6 +4,7 @@ import jade.content.onto.BasicOntology;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
 import jade.content.schema.AgentActionSchema;
+import jade.content.schema.ConceptSchema;
 import jade.content.schema.ObjectSchema;
 import jade.content.schema.PrimitiveSchema;
 
@@ -23,17 +24,45 @@ public class SystemOnto extends Ontology implements SystemVocabulary {
 		   super(ONTOLOGY_NAME, BasicOntology.getInstance());
 
 		   try {
+			   ConceptSchema cs = new ConceptSchema(TRACTOR);
+			   add(cs, Tractor.class);
+			   cs.add(TRACTOR_ID, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
+			   cs.add(TRACTOR_NAME, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+			   cs.add(TRACTOR_CONSUMPTION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+			   cs.add(TRACTOR_FARMNUMBER, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+			   cs.add(TRACTOR_FARMLOCATION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+		    	  
+			   add(cs = new ConceptSchema(FUEL_REQUEST), FuelRequest.class);
+			   cs.add(FUEL_REQUEST_FUELID, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
+			   cs.add(FUEL_REQUEST_FUELCONSUMPTION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+
+			   add(cs = new ConceptSchema(LOCATION_REQUEST), LocationRequest.class);
+			   cs.add(LOCATION_REQUEST_TRACTORID, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
+			   cs.add(LOCATION_REQUEST_TRACTORFARM, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+			   cs.add(LOCATION_REQUEST_TRACTORLOCATION, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+			   cs.add(LOCATION_REQUEST_TIMESTAMP, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
 			   // Add AgentActions
 			   
+			   // PerformRequests
+			   AgentActionSchema as = new AgentActionSchema(PERFORM_REQUESTS);
+			   add(as, PerformRequests.class);
+			   as.add(PERFORM_REQUESTS_FUEL, (ConceptSchema)getSchema(FUEL_REQUEST));
+		    	  
+			   // PerformCFP
+			   add(as = new AgentActionSchema(PERFORM_CFP), PerformCFP.class);
+			   as.add(PERFORM_CFP_TRACTORID, (ConceptSchema)getSchema(LOCATION_REQUEST));
+		   
 			   // AddAgent
-			   AgentActionSchema as = new AgentActionSchema(ADD_AGENT);
-			   add(as, AddAgent.class);
+			   add(as = new AgentActionSchema(ADD_AGENT), AddAgent.class);
 			   as.add(ADD_AGENT_NAME, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
 			   as.add(ADD_AGENT_TYPE, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
 			   
 			   add(as = new AgentActionSchema(REMOVE_AGENT), RemoveAgent.class);
 			   as.add(REMOVE_AGENT_NAME, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.MANDATORY);
 			   as.add(REMOVE_AGENT_TYPE, (PrimitiveSchema) getSchema(BasicOntology.STRING), ObjectSchema.OPTIONAL);
+			   
+			   add(as = new AgentActionSchema(RETRIEVE_DATA), RetrieveData.class);
+			   as.add(RETRIEVE_DATA_TRACTOR, (ConceptSchema)getSchema(TRACTOR));
 			   
 		   } catch (OntologyException oe) {
 			   oe.printStackTrace();

@@ -25,10 +25,8 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.AchieveREResponder;
 import ontologies.AddAgent;
-import ontologies.PerformRequests;
 import ontologies.RemoveAgent;
 import ontologies.SystemOnto;
-import ontologies.TractorOnto;
 
 public class ProgramControl extends Agent {
 
@@ -36,7 +34,7 @@ public class ProgramControl extends Agent {
 	private Ontology ontology = SystemOnto.getInstance();
 	
 	public void setup() {
-		// Register Service
+		// Register Service with the DF
 		DFAgentDescription agentDesc = new DFAgentDescription();
 		ServiceDescription serviceDesc = new ServiceDescription();
 		serviceDesc.setType("ProgramController");
@@ -54,6 +52,7 @@ public class ProgramControl extends Agent {
 		getContentManager().registerLanguage(xmlCodec);
 		getContentManager().registerOntology(ontology);
 				
+		// Receive requests from GUIs
 		MessageTemplate template = MessageTemplate.and(
 				MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),
 				MessageTemplate.MatchPerformative(ACLMessage.REQUEST) );
@@ -67,30 +66,27 @@ public class ProgramControl extends Agent {
 				inform.setLanguage(xmlCodec.getName());
 				inform.setOntology(ontology.getName());
 				inform.setPerformative(ACLMessage.INFORM);
+
+				ContentElement content;
 				try {
-					ContentElement content = getContentManager().extractContent(request);
-								
-					if (request.getOntology() == "Tractor-Ontology") {
-						// DO SOMETHING TO HANDLE TRACTOR QUERY
-					} else if(request.getOntology() == "System-Ontology") {
-						if (content.getClass().getName() == "ontologies.AddAgent") {
-							AddAgent addContent = (AddAgent) content;
-							CreateAgent(addContent.getName(), addContent.getType());
-						} else if(content.getClass().getName() == "ontologies.RemoveAgent") {
-							RemoveAgent killContent = (RemoveAgent) content;
-							// Check if the agent being killed is a tractor agent and,
-							// if so, kill its corresponding fuel management agent too
-							if ((killContent.getType() != null) && (killContent.getType().equals("TractorAgent"))) {
-								KillAgent(new AID(killContent.getName(), AID.ISLOCALNAME));
-								String fName[] = killContent.getName().split("T");
-								KillAgent(new AID(("F" + fName[1]), AID.ISLOCALNAME));
-							} else {
-								KillAgent(new AID(killContent.getName(), AID.ISLOCALNAME));
-							}
+					content = getContentManager().extractContent(request);
+					
+					if (content.getClass().getName() == "ontologies.AddAgent") {
+						AddAgent addContent = (AddAgent) content;
+						CreateAgent(addContent.getName(), addContent.getType());
+					} else if(content.getClass().getName() == "ontologies.RemoveAgent") {
+						RemoveAgent killContent = (RemoveAgent) content;
+						// Check if the agent being killed is a tractor agent and,
+						// if so, kill its corresponding fuel management agent too
+						if ((killContent.getType() != null) && (killContent.getType().equals("TractorAgent"))) {
+							KillAgent(new AID(killContent.getName(), AID.ISLOCALNAME));
+							String fName[] = killContent.getName().split("T");
+							KillAgent(new AID(("F" + fName[1]), AID.ISLOCALNAME));
+						} else {
+							KillAgent(new AID(killContent.getName(), AID.ISLOCALNAME));
 						}
 					}
 				} catch (CodecException | OntologyException e) {
-					System.out.println("Error extracting content for create message.");
 					e.printStackTrace();
 				}
 				return inform;
@@ -98,6 +94,7 @@ public class ProgramControl extends Agent {
 		} );
 	}
 	
+	// Method to create an agent
 	public void CreateAgent(String name, String type) {
 		
 		CreateAgent ca = new CreateAgent();
@@ -125,6 +122,7 @@ public class ProgramControl extends Agent {
 		addBehaviour(aec);
 	}
 	
+	// Method to kill an agent
 	public void KillAgent(AID name) {
 		KillAgent ka = new KillAgent();
 		ka.setAgent(name);

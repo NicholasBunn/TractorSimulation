@@ -4,7 +4,6 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.util.Date;
 import java.util.Iterator;
-
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -12,7 +11,6 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
-
 import jade.content.ContentElement;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
@@ -30,12 +28,10 @@ import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
 import jade.proto.SubscriptionInitiator;
 import ontologies.AddAgent;
-import ontologies.PerformRequests;
 import ontologies.RemoveAgent;
 import ontologies.RetrieveData;
 import ontologies.SystemOnto;
 import ontologies.Tractor;
-import ontologies.TractorOnto;
 
 public class ProgramGUI extends Agent {
 	
@@ -60,27 +56,29 @@ public class ProgramGUI extends Agent {
 
 	private Codec xmlCodec = new XMLCodec();
 	private Ontology systemOntology = SystemOnto.getInstance();
-	private Ontology tractorOntology = TractorOnto.getInstance();
 
 	protected void setup() {
-		
 		// Register language and ontology
 		getContentManager().registerLanguage(xmlCodec);
 		getContentManager().registerOntology(systemOntology);
-		getContentManager().registerOntology(tractorOntology);
 		
+		// Set title for window
 		JFrame programFrame = new JFrame(title);
 		
+		// Set query label
 		JLabel tractorQuery = new JLabel("Querying Tractor:");
 		tractorQuery.setBounds(10, -30, 300, 100);	
 		
-		JTextArea infoArea=new JTextArea();  
+		// Set information area for tractor information
+		JTextArea infoArea = new JTextArea();  
 	    infoArea.setBounds(86, 115, 130, 100); 
 	    
+	    // Set combobBox to select tractors
 		JComboBox<String> tractorList = new JComboBox<String>();
 		tractorList.setBounds(125, 10, 90, 20);
 		tractorList.addItem("None");
 
+		// Get number of active tractors
 		DFAgentDescription[] DFResult = null;
 		DFAgentDescription dfd = new DFAgentDescription();
 		ServiceDescription sd = new ServiceDescription();
@@ -111,16 +109,15 @@ public class ProgramGUI extends Agent {
 			            infoArea.append("Fuel Consumption: " + consumption + "\n");
 			            infoArea.append("Current Farm: " + currentFarm + "\n");
 			            infoArea.append("Current Location: " + currentLocation + "\n");
+					} else if (event.getItem() == "None") {
+						infoArea.selectAll();
+						infoArea.replaceSelection("");
 					}
 				}
-				
-//				if (event.getStateChange() == ItemEvent.DESELECTED) {
-//					System.out.println(tractorItem + "Deselected");
-//					// End display of current information
-//				}
 			}
 		});
 				
+		// Set add tractor button
 		JButton at = new JButton("Add Tractor");
 		at.setBounds(86, 45, 130, 25);
 		at.addActionListener(new ActionListener() {
@@ -130,7 +127,7 @@ public class ProgramGUI extends Agent {
 				if (tractorRemoved) {
 	                ImageIcon tractorIcon = new ImageIcon(ProgramGUI.class.getResource("/TractorIcon.png"));
 					int reLaunchCheck = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing tractor?", "Tractor Re-Commission Check", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, tractorIcon);
-					// 0=yes, 1=no, 2=cancel
+
 					String tractorName = new String();
 					if (reLaunchCheck == 0) {
 						tractorName = (String) JOptionPane.showInputDialog(null, "What is the ID of the tractor being re-commissioned? [T_]", "Tractor ID Query", JOptionPane.QUESTION_MESSAGE, tractorIcon, null, null);
@@ -159,12 +156,10 @@ public class ProgramGUI extends Agent {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// Send request to PC to kill current tractor agent
-				// PC should take care of killing the corresponding fuel agent too
-				// Prompt with an "Are you sure you would like to kill Tractor ...?"
 				if (tractorItem != null) {
 	                ImageIcon tractorIcon = new ImageIcon(ProgramGUI.class.getResource("/TractorIcon.png"));
 					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove tractor " + tractorItem + "?", "Confirm Tractor Removal", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, tractorIcon);
-			        // 0=yes, 1=no, 2=cancel
+
 					if (killCheck == 0) {
 						KillAgentMessage((String) tractorItem, "TractorAgent");
 						tractorRemoved = true;
@@ -177,9 +172,11 @@ public class ProgramGUI extends Agent {
 			}			
 		});
 						
+		// Set label for active farms
 		JLabel farmQuery = new JLabel("Active Farms:");
 		farmQuery.setBounds(360, -30, 300, 100);	
 		
+		// Set comboBox to select farm
 	    JComboBox<String> farmList = new JComboBox<String>();
 		farmList.setBounds(475, 10, 90, 20);
         farmList.addItem("None");
@@ -197,6 +194,7 @@ public class ProgramGUI extends Agent {
 			}
 		});
 		
+		// Set add farm button
 		JButton af = new JButton("Add Farm");
 		af.setBounds(415, 45, 130, 25);
 		af.addActionListener(new ActionListener() {
@@ -206,7 +204,7 @@ public class ProgramGUI extends Agent {
 				if (farmRemoved) {
 	                ImageIcon farmIcon = new ImageIcon(ProgramGUI.class.getResource("/FarmIcon.png"));
 					int reLaunchCheck2 = JOptionPane.showConfirmDialog(null, "Are you re-commissioning an existing farm?", "Farm Re-Commission Check", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, farmIcon);
-					// 0=yes, 1=no, 2=cancel
+
 					String farmName = new String();
 					if (reLaunchCheck2 == 0) {
 						farmName = (String) JOptionPane.showInputDialog(null, "What is the ID of the farm being re-commissioned? [L_]", "Farm ID Query", JOptionPane.QUESTION_MESSAGE, farmIcon, null, null);
@@ -227,6 +225,7 @@ public class ProgramGUI extends Agent {
 			}			
 		});
 				
+		// Set remove farm button
 		JButton rf = new JButton("Remove Farm");
 		rf.setBounds(415, 80, 130, 25);
 		rf.addActionListener(new ActionListener() {
@@ -236,8 +235,8 @@ public class ProgramGUI extends Agent {
 				if (farmItem != null) {
 
 	                ImageIcon farmIcon = new ImageIcon(ProgramGUI.class.getResource("/FarmIcon.png"));
-					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove farm " + farmItem + "?", "Confirm Farm Removal", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, farmIcon);
-			        // 0=yes, 1=no, 2=cancel
+					int killCheck = JOptionPane.showConfirmDialog(null, "Are you sure you would like to remove farm " + farmItem + "?", "Confirm Farm Removal", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, farmIcon);
+
 					if (killCheck == 0) {
 						KillAgentMessage((String) farmItem, null);
 						farmRemoved = true;
@@ -254,14 +253,12 @@ public class ProgramGUI extends Agent {
 		ServiceDescription tractorTemplateSd = new ServiceDescription();
 		tractorTemplate.addServices(tractorTemplateSd);
 		
-		// STILL NEED TO DISTINGUISH BETWEEN REGISTER AND DEREGISTER!
 		addBehaviour(new SubscriptionInitiator(this, DFService.createSubscriptionMessage(this, getDefaultDF(), tractorTemplate, null)) {
 			protected void handleInform(ACLMessage inform) {
-//		 		System.out.println("Agent " + getLocalName() + ": Notification received from DF");
 		 		try {
 		 			DFAgentDescription[] tractorResults = DFService.decodeNotification(inform.getContent());
-//		 			System.out.println(inform.getContent());
-					if (tractorResults.length > 0) {
+
+		 			if (tractorResults.length > 0) {
 					 	for (int i = 0; i < tractorResults.length; ++i) {
 			  				DFAgentDescription dfd = tractorResults[i];
 			  				AID provider = dfd.getName();
@@ -269,26 +266,16 @@ public class ProgramGUI extends Agent {
 			  				while (it.hasNext()) {
 			  					ServiceDescription sd = (ServiceDescription) it.next();
 			  					if ((sd.getType().equals("DataAggregator"))) {
-//			  						System.out.println("Tractor: " + sd.getName() + " found.");
 			  						tractorCount++;
-//			  						System.out.println("Total tractor count: " + tractorCount);
 			  						tractorList.addItem(sd.getName());
-			  					} 
-//				  					else if (sd.get) {
-//				  						
-//				  					} 
-			  					else if (sd.getType().equals("LocationFetcher")) {
-//			  						System.out.println("Farm: " + sd.getName() + " found.");
+			  					} else if (sd.getType().equals("LocationFetcher")) {
 			  						farmCount++;
-//			  						System.out.println("Total farm count: " + farmCount);
 			  						farmList.addItem(sd.getName());
 			  					}
 			  				}
 			  			}
 			  		}	
-		  			System.out.println();
-			  	}
-			  	catch (FIPAException fe) {
+			  	} catch (FIPAException fe) {
 			  		fe.printStackTrace();
 			  	}
 			}
@@ -311,6 +298,7 @@ public class ProgramGUI extends Agent {
 		programFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	}
 	
+	// Method to send a create agent message to the program controller
 	private void CreateAgentMessage(String name, String type) {
 		AddAgent aa = new AddAgent();
 		aa.setName(name);
@@ -322,6 +310,7 @@ public class ProgramGUI extends Agent {
 		msg.addReceiver(new AID("PC", AID.ISLOCALNAME));
 		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
 		msg.setReplyByDate(new Date(System.currentTimeMillis() + 3000));
+		
 		try {
 			getContentManager().fillContent(msg, aa);
 		} catch(CodecException | OntologyException e) {
@@ -334,16 +323,14 @@ public class ProgramGUI extends Agent {
 			}
 			protected void handleRefuse(ACLMessage refuse) {}
 			protected void handleFailure(ACLMessage failure) {
-			if (failure.getSender().equals(myAgent.getAMS())) {
-				// FAILURE notification from the JADE runtime: the receiver
-				// does not exist
-				System.out.println("Responder does not exist");
-				}
-			else {}
+				if (failure.getSender().equals(myAgent.getAMS())) {
+					System.out.println("Responder does not exist");
+				} else {}
 			}
 		});
 	}
 	
+	// Method to send a kill agent message to the program controller
 	private void KillAgentMessage(String name, String type) {
 		RemoveAgent rr = new RemoveAgent();
 		rr.setName(name);
@@ -367,30 +354,30 @@ public class ProgramGUI extends Agent {
 			protected void handleInform(ACLMessage inform) {}
 			protected void handleRefuse(ACLMessage refuse) {}
 			protected void handleFailure(ACLMessage failure) {
-			if (failure.getSender().equals(myAgent.getAMS())) {
-				// FAILURE notification from the JADE runtime: the receiver
-				// does not exist
-				System.out.println("Responder does not exist");
-				}
-			else {}
+				if (failure.getSender().equals(myAgent.getAMS())) {
+					System.out.println("Responder does not exist");
+				} else {}
 			}
 		});
 	}
 	
+	// Method to send an information request message to a tractor agent
 	private void SendRequestMessage(String tractorID) {
-		
-		PerformRequests pr = new PerformRequests();
-		pr.setTractorId(tractorID);
+		RetrieveData rd = new RetrieveData();
+		Tractor tr = new Tractor();
+		tr.setId(tractorID);
+		rd.setTractor(tr);
 		
 		// Fill the REQUEST message
 		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 		msg.setLanguage(xmlCodec.getName()); 
-		msg.setOntology(tractorOntology.getName());
+		msg.setOntology(systemOntology.getName());
 		msg.addReceiver(new AID(tractorID, AID.ISLOCALNAME));
 		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-//		msg.setReplyByDate(new Date(System.currentTimeMillis() + replyBy)); 
+
 		try {
-			getContentManager().fillContent(msg, pr);
+			getContentManager().fillContent(msg, rd);
+			System.out.println("PG-" + tractorID + " " + msg);
 		} catch (CodecException | OntologyException e) {
 			System.out.println("Error filling content for request message.");
 			e.printStackTrace();
@@ -398,42 +385,33 @@ public class ProgramGUI extends Agent {
 				
 		addBehaviour(new AchieveREInitiator(this, msg) {
 			protected void handleInform(ACLMessage inform) {
-//				System.out.println("Agent " + getLocalName() + ": " + "Agent "+inform.getSender().getName() + " successfully performed the requested action" + " with the result: " + inform.getContent());
 				ContentElement content;
 				try {
 					content = getContentManager().extractContent(inform);
 					RetrieveData rd = (RetrieveData) content;
-					TractorID = rd.getId();
-					tractorName = rd.getName();
-					consumption = rd.getConsumption();
-					currentFarm = rd.getFarmNumber();
-					currentLocation = rd.getFarmLocation();
-//					System.out.println("Tractor ID: " + TractorID);
-//					System.out.println("Tractor name: " + tractorName);
-//					System.out.println("Tractor consumption: " + consumption);
-//					System.out.println("Tractor location: " + currentFarm + " " + currentLocation);
+					Tractor tr = rd.getTractor();
+					
+					TractorID = tr.getId();
+					tractorName = tr.getName();
+					consumption = tr.getConsumption();
+					currentFarm = tr.getFarmNumber();
+					currentLocation = tr.getFarmLocation();
+					System.out.println("Tractor ID: " + TractorID);
+					System.out.println("Tractor name: " + tractorName);
+					System.out.println("Tractor consumption: " + consumption);
+					System.out.println("Tractor location: " + currentFarm + " " + currentLocation);
 
 				} catch (CodecException | OntologyException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-//				currentConsumption = inform.getContent();
-//				System.out.println("Agent " +  getLocalName() + ": " + "Response received from " + ". " + inform.getSender().getName() + ". " + "Consumption for Tractor: " + inform.getContent());
 			}
-			protected void handleRefuse(ACLMessage refuse) {
-//				System.out.println("Agent " + getLocalName() + ": " + "Agent "+refuse.getSender().getName()+" refused to perform the requested action");
-			}
+			protected void handleRefuse(ACLMessage refuse) {}
+			
 			protected void handleFailure(ACLMessage failure) {
 				if (failure.getSender().equals(myAgent.getAMS())) {
-					// FAILURE notification from the JADE runtime: the receiver
-					// does not exist
 					System.out.println("Responder does not exist");
-					}
-				else {
-//					System.out.println("Agent " + getLocalName() + ": " + "Agent "+failure.getSender().getName()+" failed to perform the requested action");
-					}
-				}
-			} );
+				} else {}
+			}
+		} );
 	}
-
 }

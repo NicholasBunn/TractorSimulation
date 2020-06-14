@@ -1,6 +1,4 @@
 import jade.core.Agent;
-import jade.core.behaviours.ActionExecutor;
-import jade.core.behaviours.OutcomeManager;
 import jade.core.behaviours.TickerBehaviour;
 import jade.content.ContentElement;
 import jade.content.lang.*;
@@ -8,7 +6,6 @@ import jade.content.lang.Codec.CodecException;
 import jade.content.lang.xml.XMLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
-import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
@@ -27,8 +24,6 @@ import jade.domain.FIPAAgentManagement.NotUnderstoodException;
 import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.JADEAgentManagement.JADEManagementOntology;
-import jade.domain.JADEAgentManagement.KillAgent;
-
 import java.io.File;
 import java.io.IOException;
 import java.text.DateFormat;
@@ -42,25 +37,23 @@ import java.io.FileWriter;
 import ontologies.*;
 
 public class TractorAgent extends Agent {
-	
 	private int replyBy = 7000;
 	
 	private String faName;
-	
-	private Codec xmlCodec = new XMLCodec();
-	private Ontology ontology = TractorOnto.getInstance();
-	
 	private String myID;
 	private String myName;
 	private String currentConsumption = "No value available yet";
 	private String currentFarm = "No farm information available yet";
 	private String currentLocation = "No location available yet";
 	
+	private Codec xmlCodec = new XMLCodec();
+	private Ontology ontology = SystemOnto.getInstance();
+	
 	private boolean first = false;
 	private int nResponders;
 	
 	protected void setup() {
-		// Register Service
+		// Register Service with the DF
 		DFAgentDescription agentDesc = new DFAgentDescription();
 		ServiceDescription serviceDesc = new ServiceDescription();
 		serviceDesc.setType("DataAggregator");
@@ -80,7 +73,7 @@ public class TractorAgent extends Agent {
 	    getContentManager().registerOntology(JADEManagementOntology.getInstance());
 	    getContentManager().registerOntology(ontology);
 		
-		// Firstly, create a file for this tractor agent to write to if a file does not already exist.
+		// Firstly, create a file for this tractor agent to write to if it does not already exist.
 		String instanceNumber = getLocalName();
 		String[] no = instanceNumber.split("T");
 		String fileName = "Tractor" + no[1] + ".csv";
@@ -90,10 +83,9 @@ public class TractorAgent extends Agent {
 			if(tractorFile.createNewFile()) {
 				System.out.println("File created: " + tractorFile.getName());
 			} else {
-				System.out.println("File already exists.");
+				System.out.println("File for tractor " + no[1] +"already exists.");
 				}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
@@ -109,10 +101,10 @@ public class TractorAgent extends Agent {
 			ac = cc.createNewAgent(faName, "FuelAgent", null);
 			ac.start();
 		} catch (StaleProxyException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}		
 		
+		// Receive requests from the program GUI
 		MessageTemplate template = MessageTemplate.and(
 				MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),
 				MessageTemplate.MatchPerformative(ACLMessage.REQUEST) );
@@ -123,12 +115,16 @@ public class TractorAgent extends Agent {
 			
 			protected ACLMessage prepareResultNotification(ACLMessage request, ACLMessage response) throws FailureException {
 				RetrieveData rd = new RetrieveData();
-				rd.setId(myID);
-				rd.setName(myName);
-				rd.setConsumption(currentConsumption);
-				rd.setFarmNumber(currentFarm);
-				rd.setFarmLocation(currentLocation);
-
+				Tractor tr = new Tractor();
+				
+				// Set the response information with the current tractor data
+				tr.setId(myID);
+				tr.setName(myName);
+				tr.setConsumption(currentConsumption);
+				tr.setFarmNumber(currentFarm);
+				tr.setFarmLocation(currentLocation);
+				rd.setTractor(tr);
+				
 				ACLMessage inform = request.createReply();
 				inform.setLanguage(xmlCodec.getName());
 				inform.setOntology(ontology.getName());
@@ -140,28 +136,29 @@ public class TractorAgent extends Agent {
 					System.out.println("Error filling content for data message.");
 					e.printStackTrace();
 				}
+				
 				return inform;
 			}
 		} );
 		
-		// Ticker behaviour, set to execute every second. The methods executed in this behaviour 
+		// Ticker behaviour, set to execute every few second. The methods executed in this behaviour 
 		// firstly update the data and then write the current values as well as the time stamp
 		// to the respective file.
-		addBehaviour(new TickerBehaviour(this, 7000) { // SHOULD THIS BE IN SETUP()?
+		addBehaviour(new TickerBehaviour(this, 7000) { 
 			@Override
 			protected void onTick() {
-					SendRequest();
+					SendRequest();					// Request most recent fuel consumption data
 				try {
-					SendCFP();
+					SendCFP();						// Request most recent location of this tractor from the active farms
 				} catch (FIPAException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				WriteToFile(tractorFile);
+				WriteToFile(tractorFile);			// Write the available information to the tractors data file
 			}
 		} );
 	}
 	
+	@Override
 	protected void takeDown() 
     {
        try { 
@@ -170,83 +167,69 @@ public class TractorAgent extends Agent {
        } catch(Exception e) {}
     }
 	
-	// Function/method to request consumption data for tractor.
+	// Method to request consumption data for tractor
 	private void SendRequest() {
-		// Create 
-		PerformRequests pr = new PerformRequests();
-		Tractor tr = new Tractor();
-		
 		String instanceNumber = getLocalName();
 		String[] no = instanceNumber.split("T");
 		String fuelSensor = "F" + no[1];
 		
-		tr.setId(no[1]);
-		tr.setName("Tractor " + no[1]);
-		pr.setTractorId(no[1]); // Should I be passing an object here? 
+		PerformRequests pr = new PerformRequests();
+		FuelRequest fr = new FuelRequest();
+		
+		fr.setTractorId(no[1]);
+		pr.setFuelId(fr);
 		
 		// Fill the REQUEST message
-		
 		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 		msg.setLanguage(xmlCodec.getName()); 
 		msg.setOntology(ontology.getName());
 		msg.addReceiver(new AID((String) fuelSensor, AID.ISLOCALNAME));
 		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-		msg.setReplyByDate(new Date(System.currentTimeMillis() + replyBy)); // We want to receive a reply within 10 secs
+		msg.setReplyByDate(new Date(System.currentTimeMillis() + replyBy));
+		
 		try {
 			getContentManager().fillContent(msg, pr);
 		} catch (CodecException | OntologyException e) {
-			System.out.println("Error filling content for fuel message.");
+			System.out.println("Error filling content for fuel reply.");
 			e.printStackTrace();
 		}
 				
 		addBehaviour(new AchieveREInitiator(this, msg) {
 			protected void handleInform(ACLMessage inform) {
-//				System.out.println("Agent " + getLocalName() + ": " + "Agent "+inform.getSender().getName() + " successfully performed the requested action" + " with the result: " + inform.getContent());
+				
 				ContentElement content;
 				try {
 					content = getContentManager().extractContent(inform);
 					PerformRequests pr = (PerformRequests) content;
-					currentConsumption = pr.getConsumption();
-//					System.out.println("Consumption for " + getLocalName() + ": " + currentConsumption);
+					FuelRequest fr = pr.getFuelId();
+					currentConsumption = fr.getTractorConsumption();
 				} catch (CodecException | OntologyException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-//				currentConsumption = inform.getContent();
-//				System.out.println("Agent " +  getLocalName() + ": " + "Response received from " + ". " + inform.getSender().getName() + ". " + "Consumption for Tractor: " + inform.getContent());
 			}
-			protected void handleRefuse(ACLMessage refuse) {
-//				System.out.println("Agent " + getLocalName() + ": " + "Agent "+refuse.getSender().getName()+" refused to perform the requested action");
-			}
+			protected void handleRefuse(ACLMessage refuse) {}
+			
 			protected void handleFailure(ACLMessage failure) {
 				if (failure.getSender().equals(myAgent.getAMS())) {
-					// FAILURE notification from the JADE runtime: the receiver
-					// does not exist
 					System.out.println("Responder does not exist");
-					}
-				else {
-//					System.out.println("Agent " + getLocalName() + ": " + "Agent "+failure.getSender().getName()+" failed to perform the requested action");
-					}
-				}
-			} );
+				} else {}
+			}
+		} );
 	}
 	
-
+	// Method to request proposals from the available location agents
 	private void SendCFP() throws FIPAException {
-		PerformCFP pc = new PerformCFP();
-		Tractor tr = new Tractor();
-		//String instanceNumber = getLocalName();
-		//String[] no = instanceNumber.split("T");
-		//String locSensor = "L" + no[1];
-		
 		String tractorNo = getLocalName();
 		String tracNo[] = tractorNo.split("T");
 		tractorNo = tracNo[1];
 		
-		tr.setId(tractorNo);
-		tr.setName("Tractor " + tractorNo);
-		pc.setTractorId(tractorNo);
+		PerformCFP pc = new PerformCFP();
+		LocationRequest lr = new LocationRequest();
 		
+		lr.setTractorId(tractorNo);
+		pc.setTractorId(lr);
+		
+		// Collect the available location agents
 		DFAgentDescription dfd = new DFAgentDescription();
         ServiceDescription sd  = new ServiceDescription();
         sd.setType("LocationFetcher");
@@ -254,9 +237,7 @@ public class TractorAgent extends Agent {
         
 		DFAgentDescription[] DFResult = DFService.search(this, dfd);
 		
-	  	if (DFResult != null && DFResult.length > 0) {
-//	  		System.out.println("Trying to receive farm information from one out of " + nResponders + " responders.");
-	  		
+	  	if (DFResult != null && DFResult.length > 0) {	  		
 	  		// Fill the CFP message
 	  		ACLMessage msg = new ACLMessage(ACLMessage.CFP);
 	  		for (int i = 0; i < DFResult.length; ++i) {
@@ -264,12 +245,12 @@ public class TractorAgent extends Agent {
 	  			String[] DFName = DFString.split("@");
 	  			msg.addReceiver(new AID((String) DFName[0], AID.ISLOCALNAME));
 	  		}
-	  		//msg.addReceiver(new AID((String) locSensor, AID.ISLOCALNAME));
+	  		
 	  		msg.setLanguage(xmlCodec.getName()); 
 			msg.setOntology(ontology.getName());
 			msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
-			// We want to receive a reply in 10 secs
 			msg.setReplyByDate(new Date(System.currentTimeMillis() + replyBy));
+			
 			try {
 				getContentManager().fillContent(msg, pc);
 //				System.out.println(msg);
@@ -297,69 +278,59 @@ public class TractorAgent extends Agent {
 							reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
 							acceptances.addElement(reply);
 							
+							ContentElement content;
 							try {
-								PerformCFP pc = (PerformCFP) getContentManager().extractContent(msg);
-								int proposal = Integer.parseInt(pc.getTimeStamp());
-//								System.out.println("Received proposal " + proposal);
-//								System.out.println("Consumption for " + getLocalName() + ": " + currentConsumption);
+								content = getContentManager().extractContent(msg);
+								PerformCFP pCFP = (PerformCFP) content;
+								LocationRequest lr = pCFP.getTractorId();
+								int proposal = Integer.parseInt(lr.getTimeStamp());
 								if (proposal > bestProposal) {
 									bestProposal = proposal;
 									bestProposer = msg.getSender();
-//									System.out.println("Tractor " + getLocalName() + " accepting proposal from " + bestProposer);
 									accept = reply;
 								}
 							} catch (CodecException | OntologyException err) {
-								// TODO Auto-generated catch block
 								err.printStackTrace();
 							}							
 						}
 					}
+					
 					// Accept the proposal of the best proposer
 					if (accept != null) {
-//						System.out.println("Accepting proposal " + bestProposal + " from responder " + bestProposer.getName());
 						accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
 					}						
 				}
 				
 				protected void handleInform(ACLMessage inform) {
-//					System.out.println("Agent " + inform.getSender().getName() + " successfully performed the requested action");
-					PerformCFP pc;
+					ContentElement content;
 					try {
-						pc = (PerformCFP) getContentManager().extractContent(inform);
-						currentLocation = pc.getFarmLocation();
-						currentFarm = pc.getFarmNumber();
-//						System.out.println(currentLocation);
+						content = getContentManager().extractContent(inform);
+						PerformCFP pCFP = (PerformCFP) content;
+						LocationRequest lr = pCFP.getTractorId();
+						currentLocation = lr.getTractorLocation();
+						currentFarm = lr.getTractorFarm();
 					} catch (CodecException | OntologyException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 					
 				}
 				
-				protected void handlePropose(ACLMessage propose, Vector v) {
-//					System.out.println("Agent " + propose.getSender().getName() + " proposed " + propose.getContent());
-				}
+				protected void handlePropose(ACLMessage propose, Vector v) {}
 					
-				protected void handleRefuse(ACLMessage refuse) {
-//					System.out.println("Agent " + refuse.getSender().getName() + " refused");
-				}
+				protected void handleRefuse(ACLMessage refuse) {}
 				
 				protected void handleFailure(ACLMessage failure) {
 					if (failure.getSender().equals(myAgent.getAMS())) {
-						// FAILURE notification from the JADE runtime: the receiver
-						// does not exist
 						System.out.println("Responder does not exist");
-					}
-					else {
+					} else {
 						System.out.println("Agent " + failure.getSender().getName() + " failed");
 					}
-					// Immediate failure --> we will not receive a response from this agent
-					nResponders--;
+					// Immediate failure - we will not receive a response from this agent
+					nResponders--; // Decrement the number of available responders
 				}
 				
 			} );
-	 	}
-	 	else {
+	 	} else {
 	 		System.out.println("No responder specified.");
 	 	}
 	}
@@ -367,36 +338,36 @@ public class TractorAgent extends Agent {
 	//Function to write values to file
 	private void WriteToFile(File tracFile) {
 		try {
-			// create FileWriter object with file as parameter 
+			// Create FileWriter object with file as parameter 
 	        FileWriter outputfile = new FileWriter(tracFile, true); 
 	  
-	        // create CSVWriter object filewriter object as parameter 
+	        // Create CSVWriter object filewriter object as parameter 
 	        CSVWriter writer = new CSVWriter(outputfile); 
 	  
 	        if (first != true) {
-	        	// adding header to csv 
+	        	// Add header to csv every time a tractor is created or re-commissioned
 		        String[] header = { "Time", "Consumption", "Farm", "Location" }; 
 		        writer.writeNext(header); 
 		        first = true;
 	        } else {
-		        // set date and times
-		        Calendar c1 = Calendar.getInstance(); // creating a Calendar object 
+		        // Set date and times
+		        Calendar c1 = Calendar.getInstance(); // Create a Calendar object 
 		  
-		        // creating a date object with specified time. 
+		        // Create a date object with specified time. 
 		        Date dateTime = c1.getTime(); 
 		        
-		        // converting date object to string
+		        // Convert date object to string
 		        DateFormat dateFormat = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");  
 	            String strDateTime = dateFormat.format(dateTime);  
             
-	        	// add data to csv 
+	        	// Add data to csv 
 	        	String[] data1 = { strDateTime, currentConsumption, currentFarm, currentLocation }; 
 	        	writer.writeNext(data1); 
 	        }
-	        // closing writer connection 
+	        
+	        // Close writer connection 
 	        writer.close(); 
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

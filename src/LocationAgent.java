@@ -2,18 +2,13 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.sql.Date;
-import java.util.Vector;
-
 import jade.content.ContentElement;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.xml.XMLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
-import jade.core.AID;
 import jade.core.Agent;
-import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
@@ -24,15 +19,12 @@ import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import jade.proto.AchieveREResponder;
-import jade.proto.ContractNetInitiator;
 import jade.proto.ContractNetResponder;
+import ontologies.LocationRequest;
 import ontologies.PerformCFP;
-import ontologies.PerformRequests;
-import ontologies.TractorOnto;
+import ontologies.SystemOnto;
 
-public class LocationAgent extends Agent {
-	private boolean busy = false;
+public class LocationAgent extends Agent {	
 	private String tractorNo;
 	private String tractorPosition = null;;
 	private String locPortNumber = null;
@@ -41,10 +33,10 @@ public class LocationAgent extends Agent {
 	private String myTime = null;
 	
 	private Codec xmlCodec = new XMLCodec();
-	private Ontology ontology = TractorOnto.getInstance();
+	private Ontology ontology = SystemOnto.getInstance();
 	
 	public void setup() {
-		// Register Service
+		// Register Service with DF
 		DFAgentDescription agentDesc = new DFAgentDescription();
 		ServiceDescription serviceDesc = new ServiceDescription();
 		serviceDesc.setType("LocationFetcher");
@@ -62,6 +54,7 @@ public class LocationAgent extends Agent {
 		getContentManager().registerLanguage(xmlCodec);
 		getContentManager().registerOntology(ontology);
 				
+		// Set Agent name and port number
 		String instanceNumber = getLocalName();
 		String[] no = instanceNumber.split("L");
 		farmNumber = no[1];
@@ -74,33 +67,33 @@ public class LocationAgent extends Agent {
 	  		
 			addBehaviour(new ContractNetResponder(this, template) {
 				protected ACLMessage prepareResponse(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
-//					System.out.println("Agent " + getLocalName( ) + ": CFP received from " + cfp.getSender().getName() + ". Action is " + cfp.getContent());
 					
 					ContentElement content;
 					try {
 						content = getContentManager().extractContent(cfp);
-						PerformCFP pc = (PerformCFP) content;
-						tractorNo = pc.getTractorId();
+						PerformCFP pr = (PerformCFP) content;
+						LocationRequest lr = pr.getTractorId();
+						tractorNo = lr.getTractorId();
 					} catch (CodecException | OntologyException e) {
-						System.out.println("Error extracting content for location message.");
+						System.out.println("Error extracting content for location message request.");
 						e.printStackTrace();
 					}
 					
-					String proposal = LastTime(Integer.parseInt(tractorNo)); // return last time tractor was on farm
+					String proposal = LastTime(Integer.parseInt(tractorNo)); // Return last time tractor was on farm
+					
+					// If a proposal exists, send it to the relevant tractor agent
 					if (proposal != null) {
-						// We provide a proposal
-//						System.out.println("Agent " + getLocalName() + ": Proposing " + proposal);
-						PerformCFP pc = new PerformCFP();
-						
 						ACLMessage propose = cfp.createReply();
 						propose.setPerformative(ACLMessage.PROPOSE);
 						
-						pc.setTractorId(tractorNo);
-						pc.setTimeStamp(proposal);
-						pc.setFarmNumber(farmNumber); 
-						// THEN NEED TO CONFIRM THAT THE RETURNED MESSAGE IS RECEIVED CORRECTLY
-						// ALSO NEED TO CHECK THE TYPE OF VARIABLE BEING PASSED BY THE LASTTIME FUNCTION
-						// INTO PROPOSAL
+						PerformCFP pc = new PerformCFP();
+						LocationRequest lr = new LocationRequest();
+						
+						lr.setTractorId(tractorNo);
+						lr.setTimeStamp(proposal);
+						lr.setTractorFarm(farmNumber);
+						
+						pc.setTractorId(lr);
 						
 						try {
 							getContentManager().fillContent(propose, pc);
@@ -110,28 +103,26 @@ public class LocationAgent extends Agent {
 						}
 						
 						return propose;
-					}
-					else {
+					} else {
 						// We refuse to provide a proposal
-//						System.out.println("Agent " + getLocalName() + ": Nothing to propose");
 						throw new RefuseException("evaluation-failed");
 					}
 				}
 				
 				protected ACLMessage prepareResultNotification(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
-//					System.out.println("Agent " + getLocalName() + ": Proposal accepted");
-//						System.out.println("Agent " + getLocalName() + ": Action successfully performed");
 						ACLMessage inform = accept.createReply();
-						
-						PerformCFP pc = new PerformCFP();
-						
-						pc.setFarmLocation(tractorPosition);
-						pc.setFarmNumber(farmNumber);
-						pc.setTimeStamp(myTime);
-						pc.setTractorId(tractorNumber);
-						
 						inform.setPerformative(ACLMessage.INFORM);
+
+						PerformCFP pc = new PerformCFP();
+						LocationRequest lr = new LocationRequest();
 						
+						lr.setTractorLocation(tractorPosition);
+						lr.setTractorFarm(farmNumber);
+						lr.setTimeStamp(myTime);
+						lr.setTractorId(tractorNumber);
+						
+						pc.setTractorId(lr);
+												
 						try {
 							getContentManager().fillContent(inform, pc);
 						} catch (CodecException | OntologyException e) {
@@ -148,6 +139,7 @@ public class LocationAgent extends Agent {
 			} );
 	  }
 	
+	@Override
 	protected void takeDown() 
     {
        try { 
@@ -155,6 +147,7 @@ public class LocationAgent extends Agent {
        } catch (Exception e) {}
     }
 		
+	// Fetch the most recent time the requested tractor was picked up
 	private String LastTime(int myTract) {
 		String currentData = null;
 		String sensor = null;
@@ -163,10 +156,11 @@ public class LocationAgent extends Agent {
 		String instanceNumber = getLocalName();
 		String[] no = instanceNumber.split("L");
 		
+		// Iterate through the different locations on the requested farm for the most recent tractor available at the relevant location
 		for(int j = 1; j < 3; j++) {
 			  for(int i = 1; i < 4; i++) {
 					sensor = "farm" + no[1] + "_p" + Integer.toString(j) + Integer.toString(i);
-//					System.out.println("Agent " + getLocalName() + " Querying Farm: " + sensor);
+					
 					try {
 						currentData = FetchLocation(sensor);
 					} catch (NumberFormatException e) {
@@ -179,17 +173,16 @@ public class LocationAgent extends Agent {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
+					
 					String[] dataArr = currentData.split("_");
 					
+					// Check that the available information is valid
 					if((!"No location sensors avaialable on this farm.".equals(currentData)) && (!"none".equals(dataArr[2])) && (!"none".equals(dataArr[3]))) {
 						String[] farm = dataArr[0].split("m");
-//						farmNumber = farm[1];
 						
 						String[] pos = dataArr[1].split("p");
-//						tractorPosition = pos[1];
 						
 						String[] tractor = dataArr[2].split("r");
-//						tractorNumber = tractor[2];
 						
 						myTime = dataArr[3];
 						
@@ -197,12 +190,12 @@ public class LocationAgent extends Agent {
 							newestTime = myTime;
 							tractorNumber = tractor[2];
 							tractorPosition = pos[1];
-//							farmNumber = farm[1];
 						}
 					} 
 			  }
 		}
 		
+		// If the most recent available tractor is the queried tractor, return the newest time as the proposal
 		if(Integer.parseInt(tractorNumber) == myTract) {
 //			System.out.println(newestTime + " T" + (String) tractorNumber + " F" + farmNumber + tractorPosition);
 			return newestTime;
@@ -211,39 +204,34 @@ public class LocationAgent extends Agent {
 		}
     }
 	
+	// Fetch the most recent location
 	private String FetchLocation(String farmCode) throws NumberFormatException, UnknownHostException, IOException {
-		busy = true;
 		String dataReceived = null;
 		DataOutputStream outToServer;
 		
 		try {
-			//setup socket
+			// Setup socket
 			Socket socket = new Socket("localhost", Integer.parseInt(locPortNumber));
 						  
-			//send message over socket
+			// Send message over socket
 			outToServer = new DataOutputStream(socket.getOutputStream());
 			byte[] outByteString1 = farmCode.getBytes("UTF-8");
 			outToServer.write(outByteString1);
-			//read replied message from socket
+			
+			// Read replied message from socket
 			byte[] inByteString = new byte[500] ;
 			int numOfBytes = socket.getInputStream().read(inByteString);
 			dataReceived = new String(inByteString, 0, numOfBytes, "UTF-8");
-						  
-			//				  System.out.println("Agent " + getLocalName() + ": FetchLocation Received: " + dataReceived);
-						  
-			//close connection
+						  						  
+			// Close connection
 			socket.close();
 			Thread.sleep(500);
-
 		} catch (IOException e) {
 			dataReceived = "No location sensors avaialable on this farm.";
-//			e.printStackTrace();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 		
-		busy = false;
 		return dataReceived;
 	}
-
 }

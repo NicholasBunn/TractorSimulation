@@ -1,25 +1,19 @@
-//import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.IOException;
-//import java.io.InputStreamReader;
 import java.net.Socket;
-
-import jade.content.Concept;
+import java.io.IOException;
 import jade.content.ContentElement;
-import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.xml.XMLCodec;
-import jade.content.onto.Ontology;
-import jade.content.onto.OntologyException;
 import jade.core.Agent;
-//import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.AchieveREResponder;
+import jade.content.onto.Ontology;
+import jade.content.onto.OntologyException;
+import ontologies.SystemOnto;
+import ontologies.FuelRequest;
 import ontologies.PerformRequests;
-import ontologies.Tractor;
-import ontologies.TractorOnto;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
@@ -32,13 +26,14 @@ import jade.domain.FIPAAgentManagement.FailureException;
 // Implement as fuel consumption agent for tractor 2
 public class FuelAgent extends Agent {
 	private boolean busy = false;
+	
 	private String mySens;
 	
 	private Codec xmlCodec = new XMLCodec();
-	private Ontology ontology = TractorOnto.getInstance();
+	private Ontology ontology = SystemOnto.getInstance();
 	
 	public void setup() {
-		// Register Service
+		// Register service with the DF
 		DFAgentDescription agentDesc = new DFAgentDescription();
 		ServiceDescription serviceDesc = new ServiceDescription();
 		serviceDesc.setType("FuelFetcher");
@@ -57,34 +52,31 @@ public class FuelAgent extends Agent {
 		getContentManager().registerOntology(ontology);
 				
 		System.out.println("Agent " + getLocalName() + " waiting for requests...");
+		
+		// Receive ACL Messages
 		MessageTemplate template = MessageTemplate.and(
 				MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),
 				MessageTemplate.MatchPerformative(ACLMessage.REQUEST) );
 		addBehaviour(new AchieveREResponder(this, template) {
 			protected ACLMessage prepareResponse(ACLMessage request) throws NotUnderstoodException, RefuseException {
-//				System.out.println("Agent " + getLocalName() + ": Request received from " + request.getSender().getName() + ". " + "Action is "+request.getContent());
 				try {
-					ContentElement content = getContentManager().extractContent(request);
-					PerformRequests pr = (PerformRequests) content;
-					mySens = pr.getTractorId();
-//					System.out.println("Fuel agent id received: " + mySens);
+					ContentElement content = getContentManager().extractContent(request);	// Extract content from message
+					PerformRequests pr = (PerformRequests) content;							// Cast content to PerformRequest ontology
+					FuelRequest fr = pr.getFuelId();										// Extract FuelRequest ontology message structure
+					mySens = fr.getTractorId();
 				} catch (CodecException | OntologyException e) {
-					// TODO Auto-generated catch block
-					System.out.println("Error extracting content for fuel message.");
+					System.out.println("Error extracting content for fuel message request.");
 					e.printStackTrace();
 				}
 				
 				if (!busy) {
-					// We agree to perform the action. Note that in the FIPA-Request
-					// protocol the AGREE message is optional. Return null if you
-					// don't want to send it.
-//					System.out.println("Agent "+getLocalName()+": Agree");
+					// If the Agent is not currently busy, agree to perform the action
 					ACLMessage agree = request.createReply();
 					agree.setPerformative(ACLMessage.AGREE);
 					return agree;
 				}
 				else {
-					// We refuse to perform the action
+					// Refuse to perform the action if Agent is busy
 					System.out.println("Agent " + getLocalName() + ": Refuse");
 					throw new RefuseException("check-failed");
 				}
@@ -92,16 +84,22 @@ public class FuelAgent extends Agent {
 			
 			protected ACLMessage prepareResultNotification(ACLMessage request, ACLMessage response) throws FailureException {
 				PerformRequests pr = new PerformRequests();
-				String returnString = FetchConsumption(mySens);
+				FuelRequest fr = new FuelRequest();
+				
+				String returnString = FetchConsumption(mySens); 							// Collect the current consumption data
+				
+				// If there is available information for the consumption, reply with the consumption
 				if (returnString != null) {
-//					System.out.println("Agent " + getLocalName() + ": " + "Action successfully performed");
 					ACLMessage inform = request.createReply();
 					inform.setLanguage(xmlCodec.getName());
 					inform.setOntology(ontology.getName());
 					inform.setPerformative(ACLMessage.INFORM);
-//					inform.setContent(returnString);
-					pr.setTractorId(mySens);
-					pr.setConsumption(returnString);
+					
+					fr.setTractorId(mySens);
+					fr.setTractorConsumption(returnString);
+					
+					pr.setFuelId(fr);
+					
 					try {
 						getContentManager().fillContent(inform, pr);
 					} catch (CodecException | OntologyException e) {
@@ -111,63 +109,55 @@ public class FuelAgent extends Agent {
 					return inform;
 				}
 				else {
-//					System.out.println("Agent " + getLocalName() + ": Action failed");
-					throw new FailureException("unexpected-error");
+					throw new FailureException("Consumption data returned 'null'.");
 				}	
 			}
 		} );
 	}
 	
+	@Override
 	protected void takeDown() 
     {
-       try { 
-    	   DFService.deregister(this); 
-    	   
-       } catch (Exception e) {}
+		// De-register this agent from the DF
+		try {
+			DFService.deregister(this); 
+		} catch (Exception e) {}
     }
 	
-	private String FetchConsumption(String myId) { // MUST TAKE PORT NUMBER AS INPUT?
-//		String instanceNumber = getLocalName();
-//		String[] no = instanceNumber.split("F");
+	// Fetch consumption data from the Erlang simulation
+	private String FetchConsumption(String myId) { 
 		final String fuelPortNumber = "900" + myId; 
 		
 		busy = true;
-		  String dataReceived = null;
-		  DataOutputStream outToServer;
+		String dataReceived = null;
+		DataOutputStream outToServer;
+				
+		try { 
+			String userString = "request";
+			  
+			// Setup socket
+			Socket socket = new Socket("localhost", Integer.parseInt(fuelPortNumber));
+			  
+			// Send message over socket
+			outToServer = new DataOutputStream(socket.getOutputStream());
+			byte[] outByteString = userString.getBytes("UTF-8");
+			outToServer.write(outByteString);
 			
-//		  System.out.println("Agent " + getLocalName() + ": " + "Client started");
-	
-		  try { 
-			  String userString = "request";
-			  //System.out.println("Sending " + userString + " over port " + Port);
-			  
-			  //setup socket
-			  Socket socket = new Socket("localhost", Integer.parseInt(fuelPortNumber));
-			  
-			  //send message over socket
-			  outToServer = new DataOutputStream(socket.getOutputStream());
-			  byte[] outByteString = userString.getBytes("UTF-8");
-			  outToServer.write(outByteString);
-			  
-			  //read replied message from socket
-			  byte[] inByteString = new byte[500] ;
-			  int numOfBytes = socket.getInputStream().read(inByteString);
-			  dataReceived = new String(inByteString, 0, numOfBytes, "UTF-8");
-			  //System.out.println("Received: " + dataReceived);
-			  
-			  //close connection
-			  socket.close();
-			  Thread.sleep(500);
-		  }
-		  catch (IOException e) {
-			  dataReceived = "No fuel sensor active.";
-//			  e.printStackTrace();
-		  } catch (InterruptedException e) {
-			  e.printStackTrace();
-		  }
-		  
-		  busy = false;
-		  return dataReceived;
+			// Read replied message from socket
+			byte[] inByteString = new byte[500] ;
+			int numOfBytes = socket.getInputStream().read(inByteString);
+			dataReceived = new String(inByteString, 0, numOfBytes, "UTF-8");
+			
+			// Close connection
+			socket.close();
+			Thread.sleep(500);
+		} catch (IOException e) {
+			dataReceived = "No fuel sensor active.";
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		
+		busy = false;
+		return dataReceived;
 	}
 }
-
