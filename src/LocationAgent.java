@@ -186,7 +186,7 @@ public class LocationAgent extends Agent {
 						
 						myTime = dataArr[3];
 						
-						if(Integer.parseInt(myTime) > Integer.parseInt(newestTime)) {
+						if((Integer.parseInt(myTime) > Integer.parseInt(newestTime)) && (Integer.parseInt(tractor[2]) == myTract)) {
 							newestTime = myTime;
 							tractorNumber = tractor[2];
 							tractorPosition = pos[1];
