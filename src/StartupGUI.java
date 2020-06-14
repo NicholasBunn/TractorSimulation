@@ -18,6 +18,7 @@ import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
 import ontologies.AddAgent;
+import ontologies.AddAgentConcept;
 import ontologies.SystemOnto;
 import jade.content.lang.xml.XMLCodec;
 import jade.content.onto.Ontology;
@@ -198,8 +199,11 @@ public class StartupGUI extends Agent {
 	// Send create agent message to the program controller
 	private void CreateAgentMessage(String name, String type) {
 		AddAgent aa = new AddAgent();
-		aa.setName(name);
-		aa.setType(type);
+		AddAgentConcept ac = new AddAgentConcept();
+		ac.setName(name);
+		ac.setType(type);
+		
+		aa.setAgent(ac);
 		
 		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 		msg.setLanguage(xmlCodec.getName()); 

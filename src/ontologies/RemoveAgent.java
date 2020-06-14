@@ -3,22 +3,13 @@ package ontologies;
 import jade.content.AgentAction;
 
 public class RemoveAgent implements AgentAction {
-	private String name;
-	private String type;
+private RemoveAgentConcept agent;
 	
-	public String getName() {
-		return name;
+	public RemoveAgentConcept getAgent() {
+		return agent;
 	}
 	
-	public String getType() {
-		return type;
-	}
-	
-	public void setName(String name) {
-		this.name = name;
-	}
-	
-	public void setType(String type) {
-		this.type = type;
+	public void setAgent(RemoveAgentConcept agent) {
+		this.agent = agent;
 	}
 }

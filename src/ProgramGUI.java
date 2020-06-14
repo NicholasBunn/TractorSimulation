@@ -28,7 +28,9 @@ import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
 import jade.proto.SubscriptionInitiator;
 import ontologies.AddAgent;
+import ontologies.AddAgentConcept;
 import ontologies.RemoveAgent;
+import ontologies.RemoveAgentConcept;
 import ontologies.RetrieveData;
 import ontologies.SystemOnto;
 import ontologies.Tractor;
@@ -134,7 +136,7 @@ public class ProgramGUI extends Agent {
 						System.out.println(tractorName);
 						tractorCount--;
 						CreateAgentMessage(tractorName, "TractorAgent");
-					} else {
+					} else if (reLaunchCheck == 1) {
 						tractorCount++;
 						tractorName = "T" + Integer.toString(tractorCount);
 						tractorCount--;
@@ -210,7 +212,7 @@ public class ProgramGUI extends Agent {
 						farmName = (String) JOptionPane.showInputDialog(null, "What is the ID of the farm being re-commissioned? [L_]", "Farm ID Query", JOptionPane.QUESTION_MESSAGE, farmIcon, null, null);
 						farmCount--;
 						CreateAgentMessage(farmName, "LocationAgent");
-					} else {
+					} else if (reLaunchCheck2 == 1) {
 						farmCount++;
 						farmName = "L" + Integer.toString(farmCount);
 						farmCount--;
@@ -301,8 +303,12 @@ public class ProgramGUI extends Agent {
 	// Method to send a create agent message to the program controller
 	private void CreateAgentMessage(String name, String type) {
 		AddAgent aa = new AddAgent();
-		aa.setName(name);
-		aa.setType(type);
+		AddAgentConcept ac = new AddAgentConcept();
+		
+		ac.setName(name);
+		ac.setType(type);
+		
+		aa.setAgent(ac);
 		
 		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 		msg.setLanguage(xmlCodec.getName()); 
@@ -333,10 +339,13 @@ public class ProgramGUI extends Agent {
 	// Method to send a kill agent message to the program controller
 	private void KillAgentMessage(String name, String type) {
 		RemoveAgent rr = new RemoveAgent();
-		rr.setName(name);
+		RemoveAgentConcept rc = new RemoveAgentConcept();
+		rc.setName(name);
 		if (type != null) {
-			rr.setType(type);
+			rc.setType(type);
 		} else {}
+		
+		rr.setAgent(rc);
 		
 		ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 		msg.setLanguage(xmlCodec.getName()); 
