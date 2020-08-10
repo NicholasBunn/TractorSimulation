@@ -3,4 +3,4 @@ Code for my Reconfigurable Control 814 project. This project provides a digital 
 
 This is my first project making use of Java and OOP, so I'm still finding my feet a bit. Implemented within Java, JADE was employed to develop this as a multi-agent system, with this project serving as my introduction to this framework too. There was a lot of back and forth trying to figure out the nuances of the JADE framework while also working with Java and OOP for the first time.
 
-Immediate improvements to functionality would be to add a real-time graph to the GUI that displays the efficiency history of each tractor, as well as a farm layout mapping the various tractors as they move on and between farms. 
+Immediate improvements to functionality would be to add a real-time graph to the GUI that displays the efficiency history of each tractor, as well as a farm layout mapping the various tractors as they move on and inbetween farms. 
